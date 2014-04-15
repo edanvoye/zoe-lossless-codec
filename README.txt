@@ -13,7 +13,7 @@ current version allows lossless compression of grayscale video data in the "Y8  
 
  Revision History:
   2014-04-15 E. Danvoye    Initial Release
-
+  2014-04-15 E. Danvoye    1.01 Fix crash with CRT allocator
 
 
 =========

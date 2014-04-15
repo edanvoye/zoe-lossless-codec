@@ -59,4 +59,17 @@ public:
 
     static ZoeCodecInstance* OpenCodec(ICOPEN* icinfo);
     static DWORD CloseCodec(ZoeCodecInstance* pinst);
+
+    static void *operator new(size_t size)
+    {
+        void *ptr = LocalAlloc(LPTR, size); // Bypass CRT for allocations, because the delete happens in 
+                                            // ZoeCodecInstance::CloseCodec and that is called by DRV_CLOSE,
+                                            // which is called after the CRT was unloaded.
+        return ptr;
+    }
+
+    static void operator delete(void *ptr, size_t size)
+    {
+        LocalFree(ptr);
+    }
 };
