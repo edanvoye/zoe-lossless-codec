@@ -4,10 +4,10 @@
 
   Zoe Grayscale Lossless Codec
 
-Zoe Grayscale Lossless Codec is a compression/decompression module to be used in the Video for Windows (VfW) 
-framework. The encoded data will typically be stored inside AVI files. The current version allows 
-lossless compression of grayscale video data in the "Y8  " or "Y10 " formats. "Y10 " is a new FOURCC 
-code representing 10 bits of grayscale data stored in the LSB of 16 bit words.
+Zoe Grayscale Lossless Codec is a video compression/decompression module to be used in AVI files under 
+the Video for Windows (VfW) framework. The encoded data will typically be stored inside AVI files. The 
+current version allows lossless compression of grayscale video data in the "Y8  " or "Y10 " formats. 
+"Y10 " is a new FOURCC code representing 10 bits of grayscale data stored in the LSB of 16 bit words.
 
 
 
