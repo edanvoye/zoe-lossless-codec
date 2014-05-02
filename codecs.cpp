@@ -30,150 +30,150 @@
 #include "codecs.h"
 #include "huffman.h"
 
-DWORD Compress_RGB24_To_RGB24(DWORD width, DWORD height, const unsigned char* in_frame, unsigned char* out_frame)
+unsigned Compress_RGB24_To_RGB24(unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame)
 {
-    DWORD len = width * height * 3;
+    unsigned len = width * height * 3;
     memcpy(out_frame, in_frame, len); // uncompressed
     return len;
 }
 
-DWORD Compress_RGB32_To_RGB32(DWORD width, DWORD height, const unsigned char* in_frame, unsigned char* out_frame)
+unsigned Compress_RGB32_To_RGB32(unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame)
 {
-    DWORD len = width * height * 4;
+    unsigned len = width * height * 4;
     memcpy(out_frame, in_frame, len); // uncompressed
     return len;
 }
 
-BOOL Decompress_RGB24_To_RGB24(DWORD inSize, DWORD width, DWORD height, const unsigned char* in_frame, unsigned char* out_frame)
+bool Decompress_RGB24_To_RGB24(unsigned inSize, unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame)
 {
-    DWORD len = width * height * 3;
+    unsigned len = width * height * 3;
 
     if (inSize != len)
-        return FALSE;
+        return false;
 
     memcpy(out_frame, in_frame, len);
-    return TRUE;
+    return true;
 }
 
-BOOL Decompress_RGB32_To_RGB32(DWORD inSize, DWORD width, DWORD height, const unsigned char* in_frame, unsigned char* out_frame)
+bool Decompress_RGB32_To_RGB32(unsigned inSize, unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame)
 {
-    DWORD len = width * height * 4;
+    unsigned len = width * height * 4;
 
     if (inSize != len)
-        return FALSE;
+        return false;
 
     memcpy(out_frame, in_frame, len);
-    return TRUE;
+    return true;
 }
 
-DWORD Compress_Y8_To_Y8(DWORD width, DWORD height, const unsigned char* in_frame, unsigned char* out_frame)
+unsigned Compress_Y8_To_Y8(unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame)
 {
-    DWORD len = width * height * 1;
+    unsigned len = width * height * 1;
     memcpy(out_frame, in_frame, len); // uncompressed
     return len;
 }
 
-DWORD Compress_Y8_To_HY8(DWORD width, DWORD height, const unsigned char* in_frame, unsigned char* out_frame)
+unsigned Compress_Y8_To_HY8(unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame)
 {
-    ZoeHuffmanCodec<char, 8> huff(width, height);
-    DWORD len = huff.encode((const char *)in_frame, (char*)out_frame);
+    ZoeHuffmanCodec<char, 8, 1> huff(width, height);
+    unsigned len = huff.encode((const char *)in_frame, (char*)out_frame);
     return len;
 }
 
-DWORD Compress_Y10_To_HY10(DWORD width, DWORD height, const unsigned char* in_frame, unsigned char* out_frame)
+unsigned Compress_Y10_To_HY10(unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame)
 {
-    ZoeHuffmanCodec<short, 10> huff(width, height);
-    DWORD len = huff.encode((const short *)in_frame, (char*)out_frame);
+    ZoeHuffmanCodec<short, 10, 1> huff(width, height);
+    unsigned len = huff.encode((const short *)in_frame, (char*)out_frame);
     return len;
 }
 
-DWORD Compress_Y10_To_Y10(DWORD width, DWORD height, const unsigned char* in_frame, unsigned char* out_frame)
+unsigned Compress_Y10_To_Y10(unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame)
 {
-    DWORD len = width * height * 2;
+    unsigned len = width * height * 2;
     memcpy(out_frame, in_frame, len); // uncompressed
     return len;
 }
 
-BOOL Decompress_Y8_To_Y8(DWORD inSize, DWORD width, DWORD height, const unsigned char* in_frame, unsigned char* out_frame)
+bool Decompress_Y8_To_Y8(unsigned inSize, unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame)
 {
-    DWORD len = width * height * 1;
+    unsigned len = width * height * 1;
 
     if (inSize != len)
-        return FALSE;
+        return false;
 
     memcpy(out_frame, in_frame, len);
-    return TRUE;
+    return true;
 }
 
-BOOL Decompress_HY8_To_Y8(DWORD inSize, DWORD width, DWORD height, const unsigned char* in_frame, unsigned char* out_frame)
+bool Decompress_HY8_To_Y8(unsigned inSize, unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame)
 {
-    ZoeHuffmanCodec<char, 8> huff(width, height);
+    ZoeHuffmanCodec<char, 8, 1> huff(width, height);
     return huff.decode<char, OutputProcessing::Default>((const char *)in_frame, (char*)out_frame);
 }
 
-BOOL Decompress_HY8_To_RGB24(DWORD inSize, DWORD width, DWORD height, const unsigned char* in_frame, unsigned char* out_frame)
+bool Decompress_HY8_To_RGB24(unsigned inSize, unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame)
 {
-    ZoeHuffmanCodec<char, 8> huff(width, height);
+    ZoeHuffmanCodec<char, 8, 1> huff(width, height);
     return huff.decode<char, OutputProcessing::gray_to_rgb24>((const char *)in_frame, (char*)out_frame);
 }
 
-BOOL Decompress_HY10_To_RGB24(DWORD inSize, DWORD width, DWORD height, const unsigned char* in_frame, unsigned char* out_frame)
+bool Decompress_HY10_To_RGB24(unsigned inSize, unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame)
 {
-    ZoeHuffmanCodec<short, 10> huff(width, height);
+    ZoeHuffmanCodec<short, 10, 1> huff(width, height);
     return huff.decode<char, OutputProcessing::gray_to_rgb24>((const char *)in_frame, (char*)out_frame);
 }
 
-BOOL Decompress_HY10_To_Y10(DWORD inSize, DWORD width, DWORD height, const unsigned char* in_frame, unsigned char* out_frame)
+bool Decompress_HY10_To_Y10(unsigned inSize, unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame)
 {
-    ZoeHuffmanCodec<short, 10> huff(width, height);
+    ZoeHuffmanCodec<short, 10, 1> huff(width, height);
     return huff.decode<short, OutputProcessing::Default>((const char *)in_frame, (short*)out_frame);
 }
 
-BOOL Decompress_HY8_To_UYVY(DWORD inSize, DWORD width, DWORD height, const unsigned char* in_frame, unsigned char* out_frame)
+bool Decompress_HY8_To_UYVY(unsigned inSize, unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame)
 {
-    ZoeHuffmanCodec<char, 8> huff(width, height);
+    ZoeHuffmanCodec<char, 8, 1> huff(width, height);
     return huff.decode<char, OutputProcessing::interleave_yuyv>((const char *)in_frame, (char*)out_frame);
 }
 
-BOOL Decompress_HY10_To_UYVY(DWORD inSize, DWORD width, DWORD height, const unsigned char* in_frame, unsigned char* out_frame)
+bool Decompress_HY10_To_UYVY(unsigned inSize, unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame)
 {
-    ZoeHuffmanCodec<short, 10> huff(width, height);
+    ZoeHuffmanCodec<short, 10, 1> huff(width, height);
     return huff.decode<short, OutputProcessing::interleave_yuyv>((const char *)in_frame, (short*)out_frame);
 }
 
-BOOL Decompress_HY10_To_Y8(DWORD inSize, DWORD width, DWORD height, const unsigned char* in_frame, unsigned char* out_frame)
+bool Decompress_HY10_To_Y8(unsigned inSize, unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame)
 {
-    ZoeHuffmanCodec<short, 10> huff(width, height);
+    ZoeHuffmanCodec<short, 10, 1> huff(width, height);
     return huff.decode<char, OutputProcessing::Default>((const char *)in_frame, (char*)out_frame);
 }
 
-BOOL Decompress_Y10_To_Y10(DWORD inSize, DWORD width, DWORD height, const unsigned char* in_frame, unsigned char* out_frame)
+bool Decompress_Y10_To_Y10(unsigned inSize, unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame)
 {
-    DWORD len = width * height * 2;
+    unsigned len = width * height * 2;
 
     if (inSize != len)
-        return FALSE;
+        return false;
 
     memcpy(out_frame, in_frame, len);
-    return TRUE;
+    return true;
 }
 
-BOOL Decompress_Y10_To_Y8(DWORD inSize, DWORD width, DWORD height, const unsigned char* in_frame, unsigned char* out_frame)
+bool Decompress_Y10_To_Y8(unsigned inSize, unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame)
 {
-    DWORD len = width * height * 2;
+    unsigned len = width * height * 2;
 
     if (inSize != len)
-        return FALSE;
+        return false;
 
     const unsigned short* in_values = (const unsigned short*)(in_frame);
 
-    for (DWORD i=0;i<len;i++)
+    for (unsigned i=0;i<len;i++)
         out_frame[i] = (in_values[i]>>2)&0x00FF;
 
-    return TRUE;
+    return true;
 }
 
-BOOL Decompress_Y8_To_UYVY(DWORD inSize, DWORD width, DWORD height, const unsigned char* in_frame, unsigned char* out_frame)
+bool Decompress_Y8_To_UYVY(unsigned inSize, unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame)
 {
     int* destination = (int *)(out_frame);
 
@@ -186,10 +186,10 @@ BOOL Decompress_Y8_To_UYVY(DWORD inSize, DWORD width, DWORD height, const unsign
         destination[i] = yuv;
     }
 
-    return TRUE;
+    return true;
 }
 
-BOOL Decompress_Y10_To_UYVY(DWORD inSize, DWORD width, DWORD height, const unsigned char* in_frame, unsigned char* out_frame)
+bool Decompress_Y10_To_UYVY(unsigned inSize, unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame)
 {
     // LOSSY, we drop the two LSB of the Y10 data
 
@@ -204,5 +204,31 @@ BOOL Decompress_Y10_To_UYVY(DWORD inSize, DWORD width, DWORD height, const unsig
         destination[i] = yuv;
     }
 
-    return TRUE;
+    return true;
+}
+
+unsigned Compress_RGB24_To_HRGB24(unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame)
+{
+    ZoeHuffmanCodec<char, 8, 3> huff(width, height);
+    unsigned len = huff.encode((const char *)in_frame, (char*)out_frame);
+    return len;
+}
+
+bool Decompress_HRGB24_To_RGB24(unsigned inSize, unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame)
+{
+    ZoeHuffmanCodec<char, 8, 3> huff(width, height);
+    return huff.decode<char, OutputProcessing::Default>((const char *)in_frame, (char*)out_frame);
+}
+
+unsigned Compress_RGB32_To_HRGB32(unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame)
+{
+    ZoeHuffmanCodec<char, 8, 4> huff(width, height);
+    unsigned len = huff.encode((const char *)in_frame, (char*)out_frame);
+    return len;
+}
+
+bool Decompress_HRGB32_To_RGB32(unsigned inSize, unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame)
+{
+    ZoeHuffmanCodec<char, 8, 4> huff(width, height);
+    return huff.decode<char, OutputProcessing::Default>((const char *)in_frame, (char*)out_frame);
 }

@@ -78,6 +78,8 @@ enum eBufferTypes {
     BTYPE_Y10,
     BTYPE_HY8,
     BTYPE_HY10,
+    BTYPE_HRGB24,
+    BTYPE_HRGB32,
 
     BTYPE_COUNT
 };
@@ -125,12 +127,10 @@ bool IsFormatSupported(LPBITMAPINFOHEADER lpbiIn)
 
     // Formats supported by the Compressor
 
-    // Formats not implemented yet are commented out
-
-    //if (lpbiIn->biCompression == BI_RGB && lpbiIn->biBitCount == 24)
-    //    return TRUE;
-    //if (lpbiIn->biCompression == BI_RGB && lpbiIn->biBitCount == 32)
-    //    return TRUE;
+    if (lpbiIn->biCompression == BI_RGB && lpbiIn->biBitCount == 24)
+        return TRUE;
+    if (lpbiIn->biCompression == BI_RGB && lpbiIn->biBitCount == 32)
+        return TRUE;
     if (lpbiIn->biCompression == mmioFOURCC('Y', '8', ' ', ' ') && lpbiIn->biBitCount == 8)
         return TRUE;
     if (lpbiIn->biCompression == mmioFOURCC('Y', '1', '0', ' ') && lpbiIn->biBitCount == 16)
@@ -145,9 +145,9 @@ void FillHeaderForInput(const LPBITMAPINFOHEADER lpbiIn, ZoeCodecHeader* header)
     header->buffer_type = BTYPE_NONE;
 
     if (lpbiIn->biCompression == BI_RGB && lpbiIn->biBitCount == 24)
-        header->buffer_type = BTYPE_RGB24;
+        header->buffer_type = BTYPE_HRGB24; // BTYPE_RGB24;
     else if (lpbiIn->biCompression == BI_RGB && lpbiIn->biBitCount == 32)
-        header->buffer_type = BTYPE_RGB32;
+        header->buffer_type = BTYPE_HRGB32; // BTYPE_RGB32;
     else if (lpbiIn->biCompression == mmioFOURCC('Y', '8', ' ', ' ') && lpbiIn->biBitCount == 8)
         header->buffer_type = BTYPE_HY8; // BTYPE_Y8
     else if (lpbiIn->biCompression == mmioFOURCC('Y', '1', '0', ' ') && lpbiIn->biBitCount == 16)
@@ -383,6 +383,30 @@ DWORD ZoeCodecInstance::Compress(ICCOMPRESS* icinfo, DWORD dwSize)
 
             return ICERR_OK;
         }
+        else if (header->buffer_type == BTYPE_HRGB24)
+        {
+            if (icinfo->lpbiInput->biCompression != BI_RGB || icinfo->lpbiInput->biBitCount != 24)
+                return ICERR_BADFORMAT;
+
+            *icinfo->lpdwFlags = AVIIF_KEYFRAME;
+
+            DWORD size = Compress_RGB24_To_HRGB24(icinfo->lpbiInput->biWidth, icinfo->lpbiInput->biHeight, in_frame, out_frame);
+            icinfo->lpbiOutput->biSizeImage = size;
+
+            return ICERR_OK;
+        }
+        else if (header->buffer_type == BTYPE_HRGB32)
+        {
+            if (icinfo->lpbiInput->biCompression != BI_RGB || icinfo->lpbiInput->biBitCount != 32)
+                return ICERR_BADFORMAT;
+
+            *icinfo->lpdwFlags = AVIIF_KEYFRAME;
+
+            DWORD size = Compress_RGB32_To_HRGB32(icinfo->lpbiInput->biWidth, icinfo->lpbiInput->biHeight, in_frame, out_frame);
+            icinfo->lpbiOutput->biSizeImage = size;
+
+            return ICERR_OK;
+        }
     }
 
     return ICERR_ERROR;
@@ -434,10 +458,12 @@ DWORD ZoeCodecInstance::DecompressQuery(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOH
         switch (header->buffer_type)
         {
         case BTYPE_RGB24:
+        case BTYPE_HRGB24:
             if (lpbiOut->biCompression == BI_RGB && lpbiOut->biBitCount==24)
                 return ICERR_OK;
             break;
         case BTYPE_RGB32:
+        case BTYPE_HRGB32:
             if (lpbiOut->biCompression == BI_RGB && lpbiOut->biBitCount==32)
                 return ICERR_OK;
             break;
@@ -504,12 +530,12 @@ DWORD ZoeCodecInstance::DecompressGetFormat(LPBITMAPINFOHEADER lpbiIn, LPBITMAPI
     {
         // Identify default output format for each BTYPE
 
-        if (header->buffer_type == BTYPE_RGB24)
+        if (header->buffer_type == BTYPE_RGB24 || header->buffer_type == BTYPE_HRGB24)
         {
             lpbiOut->biBitCount = 24;
             lpbiOut->biCompression = BI_RGB;
         }
-        else if (header->buffer_type == BTYPE_RGB32)
+        else if (header->buffer_type == BTYPE_RGB32 || header->buffer_type == BTYPE_HRGB32)
         {
             lpbiOut->biBitCount = 32;
             lpbiOut->biCompression = BI_RGB;
@@ -580,6 +606,22 @@ DWORD ZoeCodecInstance::Decompress(ICDECOMPRESS* icinfo, DWORD dwSize)
             if (icinfo->lpbiOutput->biCompression == BI_RGB && icinfo->lpbiOutput->biBitCount == 32)
             {
                 if (Decompress_RGB32_To_RGB32(icinfo->lpbiInput->biSizeImage, icinfo->lpbiOutput->biWidth, icinfo->lpbiOutput->biHeight, in_frame, out_frame))
+                    return ICERR_OK;
+            }
+        }
+        if (header->buffer_type == BTYPE_HRGB24)
+        {
+            if (icinfo->lpbiOutput->biCompression == BI_RGB && icinfo->lpbiOutput->biBitCount == 24)
+            {
+                if (Decompress_HRGB24_To_RGB24(icinfo->lpbiInput->biSizeImage, icinfo->lpbiOutput->biWidth, icinfo->lpbiOutput->biHeight, in_frame, out_frame))
+                    return ICERR_OK;
+            }
+        }
+        else if (header->buffer_type == BTYPE_HRGB32)
+        {
+            if (icinfo->lpbiOutput->biCompression == BI_RGB && icinfo->lpbiOutput->biBitCount == 32)
+            {
+                if (Decompress_HRGB32_To_RGB32(icinfo->lpbiInput->biSizeImage, icinfo->lpbiOutput->biWidth, icinfo->lpbiOutput->biHeight, in_frame, out_frame))
                     return ICERR_OK;
             }
         }

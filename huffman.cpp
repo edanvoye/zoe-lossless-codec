@@ -34,8 +34,10 @@
 #include <assert.h>
 
 // Manual instantiation of template
-template class ZoeHuffmanCodec<char, 8>;
-template class ZoeHuffmanCodec<short, 10>;
+template class ZoeHuffmanCodec<char, 8, 1>;
+template class ZoeHuffmanCodec<char, 8, 3>;
+template class ZoeHuffmanCodec<char, 8, 4>;
+template class ZoeHuffmanCodec<short, 10, 1>;
 
 template <typename T>
 class BitPacker
@@ -122,14 +124,14 @@ static void buildHuffFromNode(unsigned* huff_bits, unsigned* huff_length, const 
 }
 
 template <typename T, int UsedBits>
-void buildHuffmanTables(std::vector<std::pair<int, unsigned>>& char_count, unsigned* huff_bits, unsigned* huff_length, int& storedTreeUsed, StoredTreeNode* storedTree)
+void buildHuffmanTables(std::pair<int, unsigned>* char_count, int& char_count_used, unsigned* huff_bits, unsigned* huff_length, int& storedTreeUsed, StoredTreeNode* storedTree)
 {
 	// Build Huffmann tree
 	HuffNode huffNodes[(1<<UsedBits) * 2]; // TODO verify if we could use less... maybe the limit is 1<<UsedBits ?
 	int usedHuffNodes = 0;
-	while (char_count.size()>1)
+	while (char_count_used>1)
 	{
-		size_t rootCount = char_count.size();
+		int rootCount = char_count_used;
 		unsigned newNodeIndex = usedHuffNodes++;
 
 		// Create node from two smallest frequencies
@@ -139,14 +141,13 @@ void buildHuffmanTables(std::vector<std::pair<int, unsigned>>& char_count, unsig
 		newNode->right =char_count[rootCount-1].first; 
 
 		// remove two items that have just been parented under the node
-		char_count.pop_back();
-		char_count.pop_back();
+		char_count_used-=2;
 
 		// add this new node to the tree
-		char_count.push_back(std::make_pair(0x8000+newNodeIndex,newNode->freq));
+		char_count[char_count_used++] = std::make_pair(0x8000+newNodeIndex,newNode->freq);
 
 		// Make sure the order is still preserved after this insertion
-		for (size_t i=char_count.size()-1;i>0;i--)
+		for (size_t i=char_count_used-1;i>0;i--)
 		{ 
 			if (char_count[i].second<=char_count[i-1].second)
 				break;
@@ -171,79 +172,83 @@ void buildHuffmanTables(std::vector<std::pair<int, unsigned>>& char_count, unsig
 	}
 }
 
-template <typename T, int UsedBits>
-ZoeHuffmanCodec<T, UsedBits>::ZoeHuffmanCodec(int width, int height)
+template <typename T, int UsedBits, int Channels>
+ZoeHuffmanCodec<T, UsedBits, Channels>::ZoeHuffmanCodec(int width, int height)
 	: image_width(width),
-	  image_height(height),
-	  char_count(1<<UsedBits)
+	  image_height(height)
 {
 }
 
-template <typename T, int UsedBits>
-unsigned ZoeHuffmanCodec<T, UsedBits>::encode(const T * image_src, char * image_dest)
+template <typename T, int UsedBits, int Channels>
+unsigned ZoeHuffmanCodec<T, UsedBits, Channels>::encode(const T * image_src, char * image_dest)
 {
 	// Character usage count
-	for (int i=0;i<(1<<UsedBits);i++)
-		char_count[i] = std::make_pair(i,0);
+    for (int c=0;c<Channels;c++)
+	    for (int i=0;i<(1<<UsedBits);i++)
+		    encoder_data[c].char_count[i] = std::make_pair(i,0);
 		
 	// Run predictor + accumulate usage stats
 	for (int y=0;y<image_height;y++)
 	{
-		const T * row_ptr = &image_src[y*image_width];
-		T prev = 0;
-		for (int i=0;i<image_width;i++)
+		const T * row_ptr = &image_src[y*image_width*Channels];
+        T prev[Channels] = {0};
+		for (int i=0;i<image_width*Channels;i++)
 		{
+            const int c = i%Channels;
 			const T b = row_ptr[i];
-			const T d = (b-prev); // Simple left-predictor
+			const T d = (b-prev[c]); // Simple left-predictor
             
 			std::make_unsigned<T>::type du = ((std::make_unsigned<T>::type)d)&BitMask;
 
-			char_count[du].second++;
-			prev = b;
+			encoder_data[c].char_count[du].second++;
+			prev[c] = b;
 		}
 	}
 
-    // Sort symbol frequency
-    std::sort(char_count.begin(), char_count.end(), 
-        [](std::pair<int, unsigned>& a, std::pair<int, unsigned>& b){return a.second > b.second;});
+    size_t compressed_size = 0;
 
-    // remove symbols with zero occurences
-    while (char_count.back().second==0)
-        char_count.pop_back();
+    for (int c=0;c<Channels;c++)
+    {
+        // Sort symbol frequency
+        std::sort(&encoder_data[c].char_count[0], &encoder_data[c].char_count[encoder_data[c].char_count_used], 
+            [](std::pair<int, unsigned>& a, std::pair<int, unsigned>& b){return a.second > b.second;});
 
-	size_t compressed_size = 0;
+        // remove symbols with zero occurrences
+        while (encoder_data[c].char_count[encoder_data[c].char_count_used-1].second==0)
+            encoder_data[c].char_count_used--;
 
-	// Store huffman tables in the compressed stream
-    StoredTreeNode storedTree[(1<<UsedBits) * 2]; // TODO check if we use all of them, maybe the size should be 1<<UsedBits
-    int storedTreeUsed = 0;
+        // Store huffman tables in the compressed stream
+        StoredTreeNode storedTree[(1<<UsedBits) * 2]; // TODO check if we use all of them, maybe the size should be 1<<UsedBits
+        int storedTreeUsed = 0;
 
-	// Build Huffman tables from stats
-	buildHuffmanTables<T, UsedBits>(char_count, huff_bits, huff_length, storedTreeUsed, storedTree);
+        // Build Huffman tables from stats
+    	buildHuffmanTables<T, UsedBits>(encoder_data[c].char_count, encoder_data[c].char_count_used, encoder_data[c].huff_bits, encoder_data[c].huff_length, storedTreeUsed, storedTree);
 
-    // Store huffman tables in the compressed stream
-    *((unsigned int *)&image_dest[compressed_size]) = storedTreeUsed;
-    compressed_size+= 4;
-    *((unsigned int *)&image_dest[compressed_size]) = char_count[0].first - 0x8000; // root index
-    compressed_size+= 4;
-    memcpy(&image_dest[compressed_size], storedTree, sizeof(StoredTreeNode)*storedTreeUsed);
-    compressed_size += sizeof(StoredTreeNode)*storedTreeUsed;
+        // Store huffman tables in the compressed stream
+        *((unsigned int *)&image_dest[compressed_size]) = storedTreeUsed;
+        compressed_size+= 4;
+        *((unsigned int *)&image_dest[compressed_size]) = encoder_data[c].char_count[0].first - 0x8000; // root index
+        compressed_size+= 4;
+        memcpy(&image_dest[compressed_size], storedTree, sizeof(StoredTreeNode)*storedTreeUsed);
+        compressed_size += sizeof(StoredTreeNode)*storedTreeUsed;
+    }
 
 	// For each line, build compressed stream by concatenating bits
 	BitPacker<unsigned> bitPacker(&image_dest[compressed_size]);
 
-
 	for (int y=0;y<image_height;y++)
 	{
-		const T * row_ptr = &image_src[0+y*image_width];
-		T prev = 0;
-		for (int x=0;x<image_width;x++)
+        const T * row_ptr = &image_src[y*image_width*Channels];
+        T prev[Channels] = {0};
+		for (int x=0;x<image_width*Channels;x++)
 		{
+            const int c = x%Channels;
             const T b = row_ptr[x];
-            const T d = (b-prev); // Simple left-predictor
+            const T d = (b-prev[c]); // Simple left-predictor
             unsigned int du = ((unsigned int)(std::make_unsigned<T>::type)d)&BitMask;
 
-            bitPacker.pack(huff_length[du], huff_bits[du]);
-            prev = b;
+            bitPacker.pack(encoder_data[c].huff_length[du], encoder_data[c].huff_bits[du]);
+            prev[c] = b;
 		}
 	}
 	compressed_size += bitPacker.flush();
@@ -285,6 +290,15 @@ public:
     HuffmanTree(int rootIndex, const StoredTreeNode * storedTree) : m_rootIndex(rootIndex), m_storedTree(storedTree), m_currentIndex(rootIndex)
     {
     }
+    HuffmanTree() : m_rootIndex(0), m_storedTree(0), m_currentIndex(0)
+    {
+    }
+    void init(int rootIndex, const StoredTreeNode * storedTree)
+    {
+        m_rootIndex = rootIndex; 
+        m_storedTree = storedTree; 
+        m_currentIndex = rootIndex;
+    }
     unsigned int next(bool bit)
     {
         // return 0xFFFFFFFF if we have to continue searching
@@ -309,41 +323,48 @@ private:
     const StoredTreeNode * m_storedTree;
 };
 
-template <typename T, int UsedBits>
+template <typename T, int UsedBits, int Channels>
 template <typename To, int op>
-bool ZoeHuffmanCodec<T, UsedBits>::decode(const char * image_src, To * image_dest)
+bool ZoeHuffmanCodec<T, UsedBits, Channels>::decode(const char * image_src, To * image_dest)
 {
-    // Read Huffman tables
-    int storedTreeUsed = *((const unsigned int*)image_src);
-    image_src += 4;
-    int storedTreeRootIndex = *((const unsigned int*)image_src);
-    image_src += 4;
-    const StoredTreeNode * storedTree = (const StoredTreeNode *)image_src;
-    image_src += sizeof(StoredTreeNode)*storedTreeUsed;
+    HuffmanTree tree[Channels];
+
+    for (int c=0;c<Channels;c++)
+    {
+        // Read Huffman tables
+        int storedTreeUsed = *((const unsigned int*)image_src);
+        image_src += 4;
+        int storedTreeRootIndex = *((const unsigned int*)image_src);
+        image_src += 4;
+        const StoredTreeNode * storedTree = (const StoredTreeNode *)image_src;
+        image_src += sizeof(StoredTreeNode)*storedTreeUsed;
+
+        tree[c].init(storedTreeRootIndex, storedTree);
+    }
 
     const char * src_ptr = image_src;
-
-    HuffmanTree tree(storedTreeRootIndex, storedTree);
     BitReader<unsigned> reader(src_ptr);
 
     for (int y=0;y<image_height;y++)
     {
         const int output_mult = (op==OutputProcessing::gray_to_rgb24&&sizeof(To)==1)?3:(((op==OutputProcessing::interleave_yuyv&&sizeof(To)==1)?2:1));
-        To * dest_ptr = image_dest + y * image_width * output_mult; 
+        To * dest_ptr = image_dest + y * image_width * Channels * output_mult; 
         if (op==OutputProcessing::gray_to_rgb24)
-            dest_ptr = image_dest + (image_height-y-1) * image_width * output_mult; 
+            dest_ptr = image_dest + (image_height-y-1) * image_width * Channels * output_mult; 
 
         int nb_read = 0;
-        T prev = 0;
+        T prev[Channels] = {0};
         unsigned int x;
-        while (nb_read<image_width)
+        while (nb_read<image_width*Channels)
         {
+            const int chan = nb_read%Channels;
+
             // advance in tree bit by bit, until leaf
-            while ((x=tree.next(reader.next()))==0xFFFFFFFF) {}
+            while ((x=tree[chan].next(reader.next()))==0xFFFFFFFF) {}
 
-            prev = (T)x + prev;
+            prev[chan] = (T)x + prev[chan];
 
-            std::make_unsigned<T>::type du = ((std::make_unsigned<T>::type)prev)&BitMask;
+            std::make_unsigned<T>::type du = ((std::make_unsigned<T>::type)prev[chan])&BitMask;
 
             if (op==OutputProcessing::interleave_yuyv && sizeof(To)==1) 
                 *dest_ptr++ = (To)0x80;
@@ -366,10 +387,13 @@ bool ZoeHuffmanCodec<T, UsedBits>::decode(const char * image_src, To * image_des
 }
 
 // Manual instantiation of template function
-template bool ZoeHuffmanCodec<char, 8>::decode<char, OutputProcessing::interleave_yuyv>(const char * image_src, char * image_dest);
-template bool ZoeHuffmanCodec<char, 8>::decode<char, OutputProcessing::Default>(const char * image_src, char * image_dest);
-template bool ZoeHuffmanCodec<short, 10>::decode<short, OutputProcessing::interleave_yuyv>(const char * image_src, short * image_dest);
-template bool ZoeHuffmanCodec<short, 10>::decode<short, OutputProcessing::Default>(const char * image_src, short * image_dest);
-template bool ZoeHuffmanCodec<short, 10>::decode<char, OutputProcessing::Default>(const char * image_src, char * image_dest);
-template bool ZoeHuffmanCodec<char, 8>::decode<char, OutputProcessing::gray_to_rgb24>(const char * image_src, char * image_dest);
-template bool ZoeHuffmanCodec<short, 10>::decode<char, OutputProcessing::gray_to_rgb24>(const char * image_src, char * image_dest);
+template bool ZoeHuffmanCodec<char, 8, 1>::decode<char, OutputProcessing::interleave_yuyv>(const char * image_src, char * image_dest);
+template bool ZoeHuffmanCodec<char, 8, 1>::decode<char, OutputProcessing::Default>(const char * image_src, char * image_dest);
+template bool ZoeHuffmanCodec<short, 10, 1>::decode<short, OutputProcessing::interleave_yuyv>(const char * image_src, short * image_dest);
+template bool ZoeHuffmanCodec<short, 10, 1>::decode<short, OutputProcessing::Default>(const char * image_src, short * image_dest);
+template bool ZoeHuffmanCodec<short, 10, 1>::decode<char, OutputProcessing::Default>(const char * image_src, char * image_dest);
+template bool ZoeHuffmanCodec<char, 8, 1>::decode<char, OutputProcessing::gray_to_rgb24>(const char * image_src, char * image_dest);
+template bool ZoeHuffmanCodec<short, 10, 1>::decode<char, OutputProcessing::gray_to_rgb24>(const char * image_src, char * image_dest);
+
+template bool ZoeHuffmanCodec<char, 8, 3>::decode<char, OutputProcessing::Default>(const char * image_src, char * image_dest);
+template bool ZoeHuffmanCodec<char, 8, 4>::decode<char, OutputProcessing::Default>(const char * image_src, char * image_dest);

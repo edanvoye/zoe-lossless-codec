@@ -31,7 +31,7 @@ namespace OutputProcessing
     enum {Default, interleave_yuyv, gray_to_rgb24};
 }
 
-template <typename T, int UsedBits>
+template <typename T, int UsedBits, int Channels>
 class ZoeHuffmanCodec
 {
 public:
@@ -50,7 +50,12 @@ private:
 	int image_height;
 
     // Encoder only
-	std::vector<std::pair<int, unsigned>> char_count; // first represents the symbol, or if >0x8000, it is huffNode index+0x8000
-	unsigned huff_bits[1<<UsedBits];
-	unsigned huff_length[1<<UsedBits];
+    struct EncoderData {
+        EncoderData() : char_count_used(1<<UsedBits) {}
+
+	    std::pair<int, unsigned> char_count[1<<UsedBits]; // first represents the symbol, or if >0x8000, it is huffNode index+0x8000
+        int char_count_used;
+	    unsigned huff_bits[1<<UsedBits];
+	    unsigned huff_length[1<<UsedBits];
+    } encoder_data[Channels];
 };
