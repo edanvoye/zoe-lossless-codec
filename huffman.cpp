@@ -35,6 +35,7 @@
 
 // Manual instantiation of template
 template class ZoeHuffmanCodec<char, 8, 1>;
+template class ZoeHuffmanCodec<char, 8, 2>;
 template class ZoeHuffmanCodec<char, 8, 3>;
 template class ZoeHuffmanCodec<char, 8, 4>;
 template class ZoeHuffmanCodec<short, 10, 1>;
@@ -395,5 +396,6 @@ template bool ZoeHuffmanCodec<short, 10, 1>::decode<char, OutputProcessing::Defa
 template bool ZoeHuffmanCodec<char, 8, 1>::decode<char, OutputProcessing::gray_to_rgb24>(const char * image_src, char * image_dest);
 template bool ZoeHuffmanCodec<short, 10, 1>::decode<char, OutputProcessing::gray_to_rgb24>(const char * image_src, char * image_dest);
 
+template bool ZoeHuffmanCodec<char, 8, 2>::decode<char, OutputProcessing::Default>(const char * image_src, char * image_dest);
 template bool ZoeHuffmanCodec<char, 8, 3>::decode<char, OutputProcessing::Default>(const char * image_src, char * image_dest);
 template bool ZoeHuffmanCodec<char, 8, 4>::decode<char, OutputProcessing::Default>(const char * image_src, char * image_dest);

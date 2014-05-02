@@ -232,3 +232,16 @@ bool Decompress_HRGB32_To_RGB32(unsigned inSize, unsigned width, unsigned height
     ZoeHuffmanCodec<char, 8, 4> huff(width, height);
     return huff.decode<char, OutputProcessing::Default>((const char *)in_frame, (char*)out_frame);
 }
+
+unsigned Compress_UYVY_To_HUYVY(unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame)
+{
+    ZoeHuffmanCodec<char, 8, 2> huff(width, height);
+    unsigned len = huff.encode((const char *)in_frame, (char*)out_frame);
+    return len;
+}
+
+bool Decompress_HUYVY_To_UYVY(unsigned inSize, unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame)
+{
+    ZoeHuffmanCodec<char, 8, 2> huff(width, height);
+    return huff.decode<char, OutputProcessing::Default>((const char *)in_frame, (char*)out_frame);
+}

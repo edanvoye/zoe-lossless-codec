@@ -58,3 +58,6 @@ bool Decompress_HRGB24_To_RGB24(unsigned inSize, unsigned width, unsigned height
 
 unsigned Compress_RGB32_To_HRGB32(unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame);
 bool Decompress_HRGB32_To_RGB32(unsigned inSize, unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame);
+
+unsigned Compress_UYVY_To_HUYVY(unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame);
+bool Decompress_HUYVY_To_UYVY(unsigned inSize, unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame);

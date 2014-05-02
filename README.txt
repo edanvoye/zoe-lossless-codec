@@ -7,7 +7,7 @@
 Zoe Lossless Codec is a video compression/decompression module to be used in AVI files under 
 the Video for Windows (VfW) framework. The encoded data will typically be stored inside AVI files. The 
 current version allows lossless compression of grayscale video data in the "Y8  " or "Y10 " formats, 
-as well as RGB24 and RGB32. RGB formats are encoded per-channel without any color space conversion.
+as well as RGB24, RGB32 and UYVY. RGB formats are encoded per-channel without any color space conversion.
 "Y10 " is a new FOURCC code representing 10 bits of grayscale data stored in the LSB of 16 bit words.
 
 

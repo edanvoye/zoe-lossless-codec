@@ -36,10 +36,10 @@ static bool LOG_TO_STDOUT = false;
 #define VERSION 0x00010000 // 1.0
 
 #if _WIN64
-    TCHAR szDescription[] = TEXT("Zoe Lossless Codec (64 bits) v1.0.0");
+    TCHAR szDescription[] = TEXT("Zoe Lossless Codec (64 bits) v1.0.3");
     TCHAR szName[]        = TEXT("ZoeLosslessCodec64");
 #else
-    TCHAR szDescription[] = TEXT("Zoe Lossless Codec (32 bits) v1.0.0");
+    TCHAR szDescription[] = TEXT("Zoe Lossless Codec (32 bits) v1.0.3");
     TCHAR szName[]        = TEXT("ZoeLosslessCodec32");
 #endif
 
@@ -80,6 +80,7 @@ enum eBufferTypes {
     BTYPE_HY10,
     BTYPE_HRGB24,
     BTYPE_HRGB32,
+    BTYPE_HUYVY,
 
     BTYPE_COUNT
 };
@@ -135,6 +136,8 @@ bool IsFormatSupported(LPBITMAPINFOHEADER lpbiIn)
         return TRUE;
     if (lpbiIn->biCompression == mmioFOURCC('Y', '1', '0', ' ') && lpbiIn->biBitCount == 16)
         return TRUE;
+    if (lpbiIn->biCompression == mmioFOURCC('U', 'Y', 'V', 'Y') && lpbiIn->biBitCount == 16)
+        return TRUE;
 
     return FALSE;
 }
@@ -152,6 +155,8 @@ void FillHeaderForInput(const LPBITMAPINFOHEADER lpbiIn, ZoeCodecHeader* header)
         header->buffer_type = BTYPE_HY8; // BTYPE_Y8
     else if (lpbiIn->biCompression == mmioFOURCC('Y', '1', '0', ' ') && lpbiIn->biBitCount == 16)
         header->buffer_type = BTYPE_HY10; // BTYPE_Y10
+    else if (lpbiIn->biCompression == mmioFOURCC('U', 'Y', 'V', 'Y') && lpbiIn->biBitCount == 16)
+        header->buffer_type = BTYPE_HUYVY; // Compressed UYVY
 
     header->pad0 = 0;
     header->pad1 = 0;
@@ -383,6 +388,18 @@ DWORD ZoeCodecInstance::Compress(ICCOMPRESS* icinfo, DWORD dwSize)
 
             return ICERR_OK;
         }
+        else if (header->buffer_type == BTYPE_HUYVY)
+        {
+            if (icinfo->lpbiInput->biCompression != mmioFOURCC('U', 'Y', 'V', 'Y') || icinfo->lpbiInput->biBitCount != 16)
+                return ICERR_BADFORMAT;
+
+            *icinfo->lpdwFlags = AVIIF_KEYFRAME;
+
+            DWORD size = Compress_UYVY_To_HUYVY(icinfo->lpbiInput->biWidth, icinfo->lpbiInput->biHeight, in_frame, out_frame);
+            icinfo->lpbiOutput->biSizeImage = size;
+
+            return ICERR_OK;
+        }
         else if (header->buffer_type == BTYPE_HRGB24)
         {
             if (icinfo->lpbiInput->biCompression != BI_RGB || icinfo->lpbiInput->biBitCount != 24)
@@ -487,6 +504,10 @@ DWORD ZoeCodecInstance::DecompressQuery(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOH
             if (lpbiOut->biCompression == BI_RGB && lpbiOut->biBitCount==24)
                 return ICERR_OK;
             break;
+        case BTYPE_HUYVY:
+            if (lpbiOut->biCompression == mmioFOURCC('U', 'Y', 'V', 'Y') && lpbiOut->biBitCount==16)
+                return ICERR_OK;
+            break;
         }
 
         logMessage("Output not supported");
@@ -549,6 +570,11 @@ DWORD ZoeCodecInstance::DecompressGetFormat(LPBITMAPINFOHEADER lpbiIn, LPBITMAPI
         {
             lpbiOut->biBitCount = 16;
             lpbiOut->biCompression = mmioFOURCC('Y', '1', '0', ' ');
+        }
+        else if (header->buffer_type == BTYPE_HUYVY)
+        {
+            lpbiOut->biBitCount = 16;
+            lpbiOut->biCompression = mmioFOURCC('U', 'Y', 'V', 'Y');
         }
         else 
             return ICERR_BADFORMAT;
@@ -676,6 +702,14 @@ DWORD ZoeCodecInstance::Decompress(ICDECOMPRESS* icinfo, DWORD dwSize)
             else if (icinfo->lpbiOutput->biCompression == BI_RGB && icinfo->lpbiOutput->biBitCount == 24)
             {
                 if (Decompress_HY10_To_RGB24(icinfo->lpbiInput->biSizeImage, icinfo->lpbiOutput->biWidth, icinfo->lpbiOutput->biHeight, in_frame, out_frame))
+                    return ICERR_OK;
+            }
+        }
+        else if (header->buffer_type == BTYPE_HUYVY)
+        {
+            if (icinfo->lpbiOutput->biCompression == mmioFOURCC('U', 'Y', 'V', 'Y') && icinfo->lpbiOutput->biBitCount == 16)
+            {
+                if (Decompress_HUYVY_To_UYVY(icinfo->lpbiInput->biSizeImage, icinfo->lpbiOutput->biWidth, icinfo->lpbiOutput->biHeight, in_frame, out_frame))
                     return ICERR_OK;
             }
         }

@@ -129,6 +129,61 @@ int main(int argc, char **argv)
         }
     }
 
+    // UYVY
+    {
+        static const int nb_channels = 2;
+        std::vector<unsigned char> input_data(test_width * test_height * nb_channels);
+        srand(2501);
+        for (int c=0;c<nb_channels;c++)
+            fillSemiRandom(&input_data[c], test_width * test_height, nb_channels);
+
+        printf("Test UYVY 8 bit compressed as if it was a single grayscale image of 2x the size\n");
+        {
+            std::vector<unsigned char> compressed(test_width * test_height * nb_channels * 1000, 0);
+            unsigned int compressed_size = Compress_Y8_To_HY8(test_width * nb_channels, test_height, &input_data[0], &compressed[0]);
+
+            printf("  Compressed size %d/%d\n", compressed_size, test_width * test_height * nb_channels);
+
+            compressed.resize(compressed_size);
+
+            std::vector<unsigned char> output_data(test_width * test_height * nb_channels, 0);
+            Decompress_HY8_To_Y8(compressed_size, test_width * nb_channels, test_height, &compressed[0], &output_data[0]);
+
+            for (int i=0;i<test_width * test_height * nb_channels;i++)
+            {
+                if (input_data[i] != output_data[i])
+                {
+                    printf("Error at offset %d, %02X != %02X\n", i, input_data[i], output_data[i]);
+                    return 1;
+                }
+            }
+            printf("  Passed\n");
+        }
+
+        printf("Test UYVY 16 bit compressed\n");
+        {
+            std::vector<unsigned char> compressed(test_width * test_height * nb_channels * 1000, 0);
+            unsigned int compressed_size = Compress_UYVY_To_HUYVY(test_width, test_height, &input_data[0], &compressed[0]);
+
+            printf("  Compressed size %d/%d\n", compressed_size, test_width * test_height * nb_channels);
+
+            compressed.resize(compressed_size);
+
+            std::vector<unsigned char> output_data(test_width * test_height * nb_channels, 0);
+            Decompress_HUYVY_To_UYVY(compressed_size, test_width, test_height, &compressed[0], &output_data[0]);
+
+            for (int i=0;i<test_width * test_height * nb_channels;i++)
+            {
+                if (input_data[i] != output_data[i])
+                {
+                    printf("Error at offset %d, %02X != %02X\n", i, input_data[i], output_data[i]);
+                    return 1;
+                }
+            }
+            printf("  Passed\n");
+        }
+    }
+
     return 0;
 }
 
