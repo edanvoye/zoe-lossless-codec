@@ -462,6 +462,8 @@ DWORD ZoeCodecInstance::DecompressQuery(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOH
 
     const ZoeCodecHeader* header = (const ZoeCodecHeader*)(&lpbiIn[1]);
 
+    logMessage("DecompressQuery version:%d buffer_type:%d", header->version, header->buffer_type);
+
     if (header->version != 1 || !IsValidType(header->buffer_type))
     {
         logMessage("Bad header");
@@ -506,6 +508,8 @@ DWORD ZoeCodecInstance::DecompressQuery(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOH
             break;
         case BTYPE_HUYVY:
             if (lpbiOut->biCompression == mmioFOURCC('U', 'Y', 'V', 'Y') && lpbiOut->biBitCount==16)
+                return ICERR_OK;
+            if (lpbiOut->biCompression == BI_RGB && lpbiOut->biBitCount==24) // convert UYVY to RGB24
                 return ICERR_OK;
             break;
         }
@@ -710,6 +714,11 @@ DWORD ZoeCodecInstance::Decompress(ICDECOMPRESS* icinfo, DWORD dwSize)
             if (icinfo->lpbiOutput->biCompression == mmioFOURCC('U', 'Y', 'V', 'Y') && icinfo->lpbiOutput->biBitCount == 16)
             {
                 if (Decompress_HUYVY_To_UYVY(icinfo->lpbiInput->biSizeImage, icinfo->lpbiOutput->biWidth, icinfo->lpbiOutput->biHeight, in_frame, out_frame))
+                    return ICERR_OK;
+            }
+            else if (icinfo->lpbiOutput->biCompression == BI_RGB && icinfo->lpbiOutput->biBitCount == 24)
+            {
+                if (Decompress_HUYVY_To_RGB24(icinfo->lpbiInput->biSizeImage, icinfo->lpbiOutput->biWidth, icinfo->lpbiOutput->biHeight, in_frame, out_frame))
                     return ICERR_OK;
             }
         }

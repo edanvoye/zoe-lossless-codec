@@ -245,3 +245,9 @@ bool Decompress_HUYVY_To_UYVY(unsigned inSize, unsigned width, unsigned height, 
     ZoeHuffmanCodec<char, 8, 2> huff(width, height);
     return huff.decode<char, OutputProcessing::Default>((const char *)in_frame, (char*)out_frame);
 }
+
+bool Decompress_HUYVY_To_RGB24(unsigned inSize, unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame)
+{
+    ZoeHuffmanCodec<char, 8, 2> huff(width, height);
+    return huff.decode<char, OutputProcessing::uyvy_to_rgb24>((const char *)in_frame, (char*)out_frame);
+}
