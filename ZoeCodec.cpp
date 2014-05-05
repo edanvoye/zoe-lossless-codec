@@ -36,10 +36,10 @@ static bool LOG_TO_STDOUT = false;
 #define VERSION 0x00010000 // 1.0
 
 #if _WIN64
-    TCHAR szDescription[] = TEXT("Zoe Lossless Codec (64 bits) v1.0.3");
+    TCHAR szDescription[] = TEXT("Zoe Lossless Codec (64 bits) v1.0.4");
     TCHAR szName[]        = TEXT("ZoeLosslessCodec64");
 #else
-    TCHAR szDescription[] = TEXT("Zoe Lossless Codec (32 bits) v1.0.3");
+    TCHAR szDescription[] = TEXT("Zoe Lossless Codec (32 bits) v1.0.4");
     TCHAR szName[]        = TEXT("ZoeLosslessCodec32");
 #endif
 
