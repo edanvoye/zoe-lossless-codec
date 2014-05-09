@@ -28,7 +28,7 @@
 
 namespace OutputProcessing 
 {
-    enum {Default, interleave_yuyv, gray_to_rgb24, uyvy_to_rgb24, rgb24_to_rgb32, gray_to_rgb32, uyvy_to_rgb32};
+    enum {Default, interleave_yuyv, gray_to_rgb24, uyvy_to_rgb24, rgb24_to_rgb32, gray_to_rgb32, uyvy_to_rgb32, rgb24_to_rgb32_revY};
 }
 
 template <typename T, int UsedBits, int Channels>
