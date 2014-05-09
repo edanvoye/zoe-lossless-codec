@@ -251,3 +251,27 @@ bool Decompress_HUYVY_To_RGB24(unsigned inSize, unsigned width, unsigned height,
     ZoeHuffmanCodec<char, 8, 2> huff(width, height);
     return huff.decode<char, OutputProcessing::uyvy_to_rgb24>((const char *)in_frame, (char*)out_frame);
 }
+
+bool Decompress_HRGB24_To_RGB32(unsigned inSize, unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame)
+{
+    ZoeHuffmanCodec<char, 8, 3> huff(width, height);
+    return huff.decode<char, OutputProcessing::rgb24_to_rgb32>((const char *)in_frame, (char*)out_frame);
+}
+
+bool Decompress_HY8_To_RGB32(unsigned inSize, unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame)
+{
+    ZoeHuffmanCodec<char, 8, 1> huff(width, height);
+    return huff.decode<char, OutputProcessing::gray_to_rgb32>((const char *)in_frame, (char*)out_frame);
+}
+
+bool Decompress_HY10_To_RGB32(unsigned inSize, unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame)
+{
+    ZoeHuffmanCodec<short, 10, 1> huff(width, height);
+    return huff.decode<char, OutputProcessing::gray_to_rgb32>((const char *)in_frame, (char*)out_frame);
+}
+
+bool Decompress_HUYVY_To_RGB32(unsigned inSize, unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame)
+{
+    ZoeHuffmanCodec<char, 8, 2> huff(width, height);
+    return huff.decode<char, OutputProcessing::uyvy_to_rgb32>((const char *)in_frame, (char*)out_frame);
+}

@@ -353,10 +353,22 @@ bool ZoeHuffmanCodec<T, UsedBits, Channels>::decode(const char * image_src, To *
 
     for (int y=0;y<image_height;y++)
     {
-        const int output_mult = ((op==OutputProcessing::gray_to_rgb24 || op==OutputProcessing::uyvy_to_rgb24)&&sizeof(To)==1)?3:(((op==OutputProcessing::interleave_yuyv&&sizeof(To)==1)?2:1));
-        To * dest_ptr = image_dest + y * image_width * Channels * output_mult; 
-        if (op==OutputProcessing::gray_to_rgb24 || op==OutputProcessing::uyvy_to_rgb24)
-            dest_ptr = image_dest + (image_height-y-1) * image_width * output_mult; // reverse Y for rgb format
+        int output_mult = 1;
+        if ((op==OutputProcessing::rgb24_to_rgb32 || op==OutputProcessing::gray_to_rgb32 || op==OutputProcessing::uyvy_to_rgb32)&&sizeof(To)==1)
+            output_mult = 4;
+        if ((op==OutputProcessing::gray_to_rgb24 || op==OutputProcessing::uyvy_to_rgb24)&&sizeof(To)==1)
+            output_mult = 3;
+        else if (op==OutputProcessing::interleave_yuyv&&sizeof(To)==1)
+            output_mult = 2;
+
+        To * dest_ptr;
+
+        if (op==OutputProcessing::rgb24_to_rgb32)
+            dest_ptr = image_dest + y * image_width * output_mult; // no reverse-y, but 4 bytes instead of 3
+        else if (op==OutputProcessing::gray_to_rgb24 || op==OutputProcessing::uyvy_to_rgb24 || op==OutputProcessing::gray_to_rgb32 || op==OutputProcessing::uyvy_to_rgb32)
+            dest_ptr = image_dest + (image_height-y-1) * image_width * output_mult; // reverse Y for rgb formats
+        else
+            dest_ptr = image_dest + y * image_width * Channels * output_mult;
 
         int nb_read = 0;
         T prev[Channels] = {0};
@@ -377,7 +389,7 @@ bool ZoeHuffmanCodec<T, UsedBits, Channels>::decode(const char * image_src, To *
             if (op==OutputProcessing::interleave_yuyv && sizeof(To)==2) 
                 du = ((du<<BitShift)&0xFF00) | 0x0080; // interleave for 10 bit 
 
-            if (op==OutputProcessing::uyvy_to_rgb24)
+            if (op==OutputProcessing::uyvy_to_rgb24 || op==OutputProcessing::uyvy_to_rgb32)
             {
                 // Convert UYVY to RGB24 while decompressing
                 *dest_ptr++ = static_cast<To>(du);
@@ -395,20 +407,28 @@ bool ZoeHuffmanCodec<T, UsedBits, Channels>::decode(const char * image_src, To *
                     *dest_ptr++ = Clip(( 298 * y0 + 516 * cb            + 128) >> 8); // B0
                     *dest_ptr++ = Clip(( 298 * y0 - 100 * cb - 208 * cr + 128) >> 8); // G0
                     *dest_ptr++ = Clip(( 298 * y0            + 409 * cr + 128) >> 8); // R0
+                    if (op==OutputProcessing::uyvy_to_rgb32)
+                        *dest_ptr++ = 0xFF;
                     *dest_ptr++ = Clip(( 298 * y1 + 516 * cb            + 128) >> 8); // B1
                     *dest_ptr++ = Clip(( 298 * y1 - 100 * cb - 208 * cr + 128) >> 8); // G1
                     *dest_ptr++ = Clip(( 298 * y1            + 409 * cr + 128) >> 8); // R1
+                    if (op==OutputProcessing::uyvy_to_rgb32)
+                        *dest_ptr++ = 0xFF;
                 }
             }
             else
             {
-                for (int c=0;c<(op==OutputProcessing::gray_to_rgb24?3:1);c++)
+                for (int c=0;c<((op==OutputProcessing::gray_to_rgb32 || op==OutputProcessing::gray_to_rgb24)?3:1);c++)
                 {
                     if (sizeof(To)*8<UsedBits)
                         *dest_ptr++ = static_cast<To>((du>>(UsedBits-sizeof(To)*8))&0xFF);
                     else
                         *dest_ptr++ = static_cast<To>(du);
                 }
+                if (op==OutputProcessing::gray_to_rgb32)
+                    *dest_ptr++ = 0xFF;
+                if (op==OutputProcessing::rgb24_to_rgb32 && chan==2)
+                    *dest_ptr++ = 0xFF;
             }
 
             nb_read++;
@@ -426,9 +446,11 @@ template bool ZoeHuffmanCodec<short, 10, 1>::decode<short, OutputProcessing::Def
 template bool ZoeHuffmanCodec<short, 10, 1>::decode<char, OutputProcessing::Default>(const char * image_src, char * image_dest);
 template bool ZoeHuffmanCodec<char, 8, 1>::decode<char, OutputProcessing::gray_to_rgb24>(const char * image_src, char * image_dest); // Y8 decoded directly to RGB24
 template bool ZoeHuffmanCodec<short, 10, 1>::decode<char, OutputProcessing::gray_to_rgb24>(const char * image_src, char * image_dest); // Y10 decoded directly to RGB24
-
 template bool ZoeHuffmanCodec<char, 8, 2>::decode<char, OutputProcessing::Default>(const char * image_src, char * image_dest);
 template bool ZoeHuffmanCodec<char, 8, 3>::decode<char, OutputProcessing::Default>(const char * image_src, char * image_dest);
 template bool ZoeHuffmanCodec<char, 8, 4>::decode<char, OutputProcessing::Default>(const char * image_src, char * image_dest);
-
 template bool ZoeHuffmanCodec<char, 8, 2>::decode<char, OutputProcessing::uyvy_to_rgb24>(const char * image_src, char * image_dest); // UYVY decoded directly to RGB24
+template bool ZoeHuffmanCodec<char, 8, 3>::decode<char, OutputProcessing::rgb24_to_rgb32>(const char * image_src, char * image_dest); // RGB24 converted to RGB32
+template bool ZoeHuffmanCodec<char, 8, 1>::decode<char, OutputProcessing::gray_to_rgb32>(const char * image_src, char * image_dest); // Y8 decoded directly to RGB32
+template bool ZoeHuffmanCodec<short, 10, 1>::decode<char, OutputProcessing::gray_to_rgb32>(const char * image_src, char * image_dest); // Y10 decoded directly to RGB32
+template bool ZoeHuffmanCodec<char, 8, 2>::decode<char, OutputProcessing::uyvy_to_rgb32>(const char * image_src, char * image_dest); // UYVY decoded directly to RGB32
