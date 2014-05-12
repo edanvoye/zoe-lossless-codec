@@ -26,6 +26,11 @@
 //  2014-03-28 E. Danvoye    Initial Release
 //
 
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+
 #include "stdafx.h"
 #include "ZoeCodec.h"
 #include "codecs.h"
@@ -36,10 +41,10 @@ static bool LOG_TO_STDOUT = false;
 #define VERSION 0x00010000 // 1.0
 
 #if _WIN64
-    TCHAR szDescription[] = TEXT("Zoe Lossless Codec (64 bits) v1.0.5");
+    TCHAR szDescription[] = TEXT("Zoe Lossless Codec (64 bits) v1.0.6");
     TCHAR szName[]        = TEXT("ZoeLosslessCodec64");
 #else
-    TCHAR szDescription[] = TEXT("Zoe Lossless Codec (32 bits) v1.0.5");
+    TCHAR szDescription[] = TEXT("Zoe Lossless Codec (32 bits) v1.0.6");
     TCHAR szName[]        = TEXT("ZoeLosslessCodec32");
 #endif
 
@@ -100,6 +105,9 @@ BOOL IsValidType(int type)
 
 void logMessage(const char * format, ...)
 {
+    char moduleName[MAX_PATH];
+    GetModuleFileName(NULL, moduleName, MAX_PATH);
+
     char buffer[256];
     va_list args;
     va_start(args, format);
@@ -110,15 +118,36 @@ void logMessage(const char * format, ...)
         std::ofstream logFile("c:\\temp\\ZoeCodec.log", std::ios::app);
         if (logFile.is_open())
         {
-            logFile << buffer << std::endl;
+            logFile << buffer << " (" << moduleName << ")" << std::endl;
         }
     }
     if (LOG_TO_STDOUT)
     {
-        std::cout << "ZoeCodec> " << buffer << std::endl;
+        std::cout << "ZoeCodec> " << buffer << " (" << moduleName << ")" << std::endl;
     }
 
     va_end(args);
+}
+
+bool exeRequiresForceRGB()
+{
+    // Some applications don't properly handle YUV formats (ex.: Motionbuilder 2014), for those applications
+    // we force the output to RGB. Microsoft's documentation simply states that "the default format should be 
+    // the one that preserves the greatest amount of information". Applications can still check a specific output format
+    // using DecompressQuery.
+
+    char moduleName[MAX_PATH];
+    GetModuleFileName(NULL, moduleName, MAX_PATH);
+
+    // make lowercase
+    for(int i = 0; moduleName[i]; i++){
+        moduleName[i] = tolower(moduleName[i]);
+    }
+
+    if (strstr(moduleName,"motionbuilder.exe")!=0)
+        return true;
+
+    return false;
 }
 
 bool IsFormatSupported(LPBITMAPINFOHEADER lpbiIn) 
@@ -301,6 +330,9 @@ DWORD ZoeCodecInstance::Compress(ICCOMPRESS* icinfo, DWORD dwSize)
 {
     logMessage("Compress");
 
+    // TODO, should we flip-y the image before compression if the input biHeight is negative ?
+    // See comment in ZoeCodecInstance::Decompress
+
     if (!IsFormatSupported(icinfo->lpbiInput))
         return ICERR_BADFORMAT;
 
@@ -423,6 +455,8 @@ DWORD ZoeCodecInstance::Compress(ICCOMPRESS* icinfo, DWORD dwSize)
             return ICERR_OK;
         }
     }
+
+    logMessage("Compress Failed ICERR_ERROR");
 
     return ICERR_ERROR;
 }
@@ -564,6 +598,10 @@ DWORD ZoeCodecInstance::DecompressGetFormat(LPBITMAPINFOHEADER lpbiIn, LPBITMAPI
     {
         // Identify default output format for each BTYPE
 
+        const bool forceRGBOutput = exeRequiresForceRGB();
+
+        logMessage("DecompressGetFormat: Forge RGB format: %s", forceRGBOutput?"YES":"NO");
+
         if (header->buffer_type == BTYPE_RGB24 || header->buffer_type == BTYPE_HRGB24)
         {
             lpbiOut->biBitCount = 24;
@@ -576,18 +614,42 @@ DWORD ZoeCodecInstance::DecompressGetFormat(LPBITMAPINFOHEADER lpbiIn, LPBITMAPI
         }
         else if (header->buffer_type == BTYPE_Y8 || header->buffer_type == BTYPE_HY8)
         {
-            lpbiOut->biBitCount = 8;
-            lpbiOut->biCompression = mmioFOURCC('Y', '8', ' ', ' ');
+            if (forceRGBOutput)
+            {
+                lpbiOut->biBitCount = 24;
+                lpbiOut->biCompression = BI_RGB;
+            }
+            else
+            {
+                lpbiOut->biBitCount = 8;
+                lpbiOut->biCompression = mmioFOURCC('Y', '8', ' ', ' ');
+            }
         }
         else if (header->buffer_type == BTYPE_Y10 || header->buffer_type == BTYPE_HY10)
         {
-            lpbiOut->biBitCount = 16;
-            lpbiOut->biCompression = mmioFOURCC('Y', '1', '0', ' ');
+            if (forceRGBOutput)
+            {
+                lpbiOut->biBitCount = 24;
+                lpbiOut->biCompression = BI_RGB;
+            }
+            else
+            {
+                lpbiOut->biBitCount = 16;
+                lpbiOut->biCompression = mmioFOURCC('Y', '1', '0', ' ');
+            }
         }
         else if (header->buffer_type == BTYPE_HUYVY)
         {
-            lpbiOut->biBitCount = 16;
-            lpbiOut->biCompression = mmioFOURCC('U', 'Y', 'V', 'Y');
+            if (forceRGBOutput)
+            {
+                lpbiOut->biBitCount = 24;
+                lpbiOut->biCompression = BI_RGB;
+            }
+            else
+            {
+                lpbiOut->biBitCount = 16;
+                lpbiOut->biCompression = mmioFOURCC('U', 'Y', 'V', 'Y');
+            }
         }
         else 
             return ICERR_BADFORMAT;
@@ -596,6 +658,8 @@ DWORD ZoeCodecInstance::DecompressGetFormat(LPBITMAPINFOHEADER lpbiIn, LPBITMAPI
 
         return ICERR_OK;
     }
+
+    logMessage("DecompressGetFormat Failed ICERR_BADFORMAT");
 
     return ICERR_BADFORMAT;
 }
@@ -616,11 +680,17 @@ DWORD ZoeCodecInstance::DecompressBegin(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOH
 
 DWORD ZoeCodecInstance::Decompress(ICDECOMPRESS* icinfo, DWORD dwSize)
 {
-    logMessage("Decompress outW:%d outH:%d outBpp:%d outputsize:%d", icinfo->lpbiOutput->biWidth, icinfo->lpbiOutput->biHeight, icinfo->lpbiOutput->biBitCount, icinfo->lpbiOutput->biSizeImage);
+    logMessage("Decompress outW:%d outH:%d outFOURCC:%s outBpp:%d outputsize:%d", icinfo->lpbiOutput->biWidth, icinfo->lpbiOutput->biHeight, fourCCStr(icinfo->lpbiOutput->biCompression), icinfo->lpbiOutput->biBitCount, icinfo->lpbiOutput->biSizeImage);
 
     if (icinfo->lpbiInput->biCompression != FOURCC_AZCL)
         return ICERR_BADFORMAT;
 
+    // TODO: Verify when image has to be flipped vertically
+    // If output is UYVY: Positive biHeight implies top-down image (top line first) [http://www.fourcc.org/yuv.php#UYVY]
+    // If output is BI_RGB: For uncompressed RGB bitmaps, if biHeight is positive, the bitmap is a bottom-up DIB with the origin at the lower left corner. If biHeight is negative, the bitmap is a top-down DIB with the origin at the upper left corner.
+    // If output is a YUV variant: For YUV bitmaps, the bitmap is always top-down, regardless of the sign of biHeight. Decoders should offer YUV formats with positive biHeight, but for backward compatibility they should accept YUV formats with either positive or negative biHeight.
+    // For compressed formats, biHeight must be positive, regardless of image orientation. [http://msdn.microsoft.com/en-us/library/windows/desktop/dd318229%28v=vs.85%29.aspx]
+    
     const ZoeCodecHeader* header = (const ZoeCodecHeader*)(&icinfo->lpbiInput[1]);
 
     logMessage("version:%d type:%d", header->version, header->buffer_type);
@@ -770,6 +840,8 @@ DWORD ZoeCodecInstance::Decompress(ICDECOMPRESS* icinfo, DWORD dwSize)
             }
         }
     }
+
+    logMessage("Decompress Failed ICERR_BADFORMAT");
 
     return ICERR_BADFORMAT;
 }

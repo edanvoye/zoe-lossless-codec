@@ -31,10 +31,7 @@
 #include "dllmain.h"
 #include "ZoeCodec.h"
 
-BOOL WINAPI DllMain( HMODULE hModule,
-                       DWORD  ul_reason_for_call,
-                       LPVOID lpReserved
-					 )
+BOOL WINAPI DllMain( HMODULE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved)
 {
 	switch (ul_reason_for_call)
 	{
@@ -49,114 +46,110 @@ BOOL WINAPI DllMain( HMODULE hModule,
 
 ZOECODEC_API LRESULT WINAPI DriverProc(DWORD dwDriverID, HDRVR hDriver, UINT uiMessage, LPARAM lParam1, LPARAM lParam2) 
 {
-  ZoeCodecInstance* pi = (ZoeCodecInstance*)(UINT)dwDriverID;
+    ZoeCodecInstance* pi = (ZoeCodecInstance*)(UINT)dwDriverID;
 
-  switch (uiMessage) {
+    switch (uiMessage) {
     case DRV_LOAD:
-      return (LRESULT)1L;
+        return (LRESULT)1L;
 
     case DRV_FREE:
-      return (LRESULT)1L;
+        return (LRESULT)1L;
 
     case DRV_OPEN:
-      return (LRESULT)(DWORD)(UINT) ZoeCodecInstance::OpenCodec((ICOPEN*) lParam2);
+        return (LRESULT)(DWORD)(UINT) ZoeCodecInstance::OpenCodec((ICOPEN*) lParam2);
 
     case DRV_CLOSE:
-      if (pi) ZoeCodecInstance::CloseCodec(pi);
-      return (LRESULT)1L;
+        if (pi) ZoeCodecInstance::CloseCodec(pi);
+        return (LRESULT)1L;
 
-    case DRV_QUERYCONFIGURE:    // configuration from drivers applet
-      return (LRESULT)1L;
+    case DRV_QUERYCONFIGURE:
+        return (LRESULT)1L;
 
     case DRV_CONFIGURE:
-      pi->Configure((HWND)lParam1);
-      return DRV_OK;
+        pi->Configure((HWND)lParam1);
+        return DRV_OK;
 
     case ICM_CONFIGURE:
-      //
-      //  return ICERR_OK if you will do a configure box, error otherwise
-      //
-      if (lParam1 == -1)
-        return pi->QueryConfigure() ? ICERR_OK : ICERR_UNSUPPORTED;
-      else
-        return pi->Configure((HWND)lParam1);
+        //  return ICERR_OK if you will do a configure box, error otherwise
+        if (lParam1 == -1)
+            return pi->QueryConfigure() ? ICERR_OK : ICERR_UNSUPPORTED;
+        else
+            return pi->Configure((HWND)lParam1);
 
     case ICM_ABOUT:
-      //
-      //  return ICERR_OK if you will do a about box, error otherwise
-      //
-      if (lParam1 == -1)
-        return pi->QueryAbout() ? ICERR_OK : ICERR_UNSUPPORTED;
-      else
-        return pi->About((HWND)lParam1);
+        //  return ICERR_OK if you will do a about box, error otherwise
+        if (lParam1 == -1)
+            return pi->QueryAbout() ? ICERR_OK : ICERR_UNSUPPORTED;
+        else
+            return pi->About((HWND)lParam1);
 
     case ICM_GETSTATE:
-      return pi->GetState((LPVOID)lParam1, (DWORD)lParam2);
+        return pi->GetState((LPVOID)lParam1, (DWORD)lParam2);
 
     case ICM_SETSTATE:
-      return pi->SetState((LPVOID)lParam1, (DWORD)lParam2);
+        return pi->SetState((LPVOID)lParam1, (DWORD)lParam2);
 
     case ICM_GETINFO:
-      return pi->GetInfo((ICINFO*)lParam1, (DWORD)lParam2);
+        return pi->GetInfo((ICINFO*)lParam1, (DWORD)lParam2);
 
     case ICM_GETDEFAULTQUALITY:
-      if (lParam1) {
-        *((LPDWORD)lParam1) = 1000;
-        return ICERR_OK;
-      }
-      break;
-
-	// Compression/Decompression
+        if (lParam1) {
+            *((LPDWORD)lParam1) = 1000;
+            return ICERR_OK;
+        }
+        break;
 
     case ICM_COMPRESS:
-      return pi->Compress((ICCOMPRESS*)lParam1, (DWORD)lParam2);
+        return pi->Compress((ICCOMPRESS*)lParam1, (DWORD)lParam2);
 
     case ICM_COMPRESS_QUERY:
-      return pi->CompressQuery((LPBITMAPINFOHEADER)lParam1, (LPBITMAPINFOHEADER)lParam2);
+        return pi->CompressQuery((LPBITMAPINFOHEADER)lParam1, (LPBITMAPINFOHEADER)lParam2);
 
     case ICM_COMPRESS_BEGIN:
-      return pi->CompressBegin((LPBITMAPINFOHEADER)lParam1, (LPBITMAPINFOHEADER)lParam2);
+        return pi->CompressBegin((LPBITMAPINFOHEADER)lParam1, (LPBITMAPINFOHEADER)lParam2);
 
     case ICM_COMPRESS_GET_FORMAT:
-      return pi->CompressGetFormat((LPBITMAPINFOHEADER)lParam1, (LPBITMAPINFOHEADER)lParam2);
+        return pi->CompressGetFormat((LPBITMAPINFOHEADER)lParam1, (LPBITMAPINFOHEADER)lParam2);
 
     case ICM_COMPRESS_GET_SIZE:
-      return pi->CompressGetSize((LPBITMAPINFOHEADER)lParam1, (LPBITMAPINFOHEADER)lParam2);
+        return pi->CompressGetSize((LPBITMAPINFOHEADER)lParam1, (LPBITMAPINFOHEADER)lParam2);
 
     case ICM_COMPRESS_END:
-      return pi->CompressEnd();
+        return pi->CompressEnd();
 
     case ICM_DECOMPRESS_QUERY:
-      return pi->DecompressQuery((LPBITMAPINFOHEADER)lParam1, (LPBITMAPINFOHEADER)lParam2);
+        // The ICM_DECOMPRESS_QUERY message queries a video decompression driver to determine if it supports a specific input format or if it can decompress a specific input format to a specific output format.
+        return pi->DecompressQuery((LPBITMAPINFOHEADER)lParam1, (LPBITMAPINFOHEADER)lParam2);
 
     case ICM_DECOMPRESS:
-      return pi->Decompress((ICDECOMPRESS*)lParam1, (DWORD)lParam2);
-	  
+        return pi->Decompress((ICDECOMPRESS*)lParam1, (DWORD)lParam2);
+
     case ICM_DECOMPRESS_BEGIN:
-      return pi->DecompressBegin((LPBITMAPINFOHEADER)lParam1, (LPBITMAPINFOHEADER)lParam2);
+        return pi->DecompressBegin((LPBITMAPINFOHEADER)lParam1, (LPBITMAPINFOHEADER)lParam2);
 
     case ICM_DECOMPRESS_GET_FORMAT:
-      return pi->DecompressGetFormat((LPBITMAPINFOHEADER)lParam1, (LPBITMAPINFOHEADER)lParam2);
+        // The ICM_DECOMPRESS_GET_FORMAT message requests the output format of the decompressed data from a video decompression driver.
+        return pi->DecompressGetFormat((LPBITMAPINFOHEADER)lParam1, (LPBITMAPINFOHEADER)lParam2);
 
     case ICM_DECOMPRESS_GET_PALETTE:
-      return pi->DecompressGetPalette((LPBITMAPINFOHEADER)lParam1, (LPBITMAPINFOHEADER)lParam2);
+        return pi->DecompressGetPalette((LPBITMAPINFOHEADER)lParam1, (LPBITMAPINFOHEADER)lParam2);
 
     case ICM_DECOMPRESS_END:
-      return pi->DecompressEnd();
+        return pi->DecompressEnd();
 
-	// Driver messages
+        // Driver messages
 
     case DRV_DISABLE:
     case DRV_ENABLE:
-      return (LRESULT)1L;
+        return (LRESULT)1L;
 
     case DRV_INSTALL:
     case DRV_REMOVE:
-      return (LRESULT)DRV_OK;
-  }
+        return (LRESULT)DRV_OK;
+    }
 
-  if (uiMessage < DRV_USER)
-    return DefDriverProc(dwDriverID, hDriver, uiMessage, lParam1, lParam2);
-  else
-    return ICERR_UNSUPPORTED;
+    if (uiMessage < DRV_USER)
+        return DefDriverProc(dwDriverID, hDriver, uiMessage, lParam1, lParam2);
+    else
+        return ICERR_UNSUPPORTED;
 }
