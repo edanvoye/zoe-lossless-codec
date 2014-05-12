@@ -15,7 +15,10 @@ as well as RGB24, RGB32 and UYVY. RGB formats are encoded per-channel without an
  Revision History:
   2014-04-15 E. Danvoye    Initial Release
   2014-04-15 E. Danvoye    1.01 Fix crash with CRT allocator
-  2014-05-02 E.Danvoye     1.02 Multi-channel, Support RGB24 and RGB32
+  2014-05-02 E. Danvoye    1.02 Multi-channel, Support RGB24 and RGB32
+  2014-05-05 E. Danvoye    1.04 Add UYVY decompression directly to RGB24
+  2014-05-09 E. Danvoye    1.05 Fix playback in Windows Media Player and Adobe Premiere (by supporting negative height and RGB32 output)
+  2014-05-12 E. Danvoye    1.06 Hack for Motionbuilder, forge RGB output for YUV formats
 
 
 =========
