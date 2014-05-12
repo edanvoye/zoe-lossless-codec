@@ -600,7 +600,7 @@ DWORD ZoeCodecInstance::DecompressGetFormat(LPBITMAPINFOHEADER lpbiIn, LPBITMAPI
 
         const bool forceRGBOutput = exeRequiresForceRGB();
 
-        logMessage("DecompressGetFormat: Forge RGB format: %s", forceRGBOutput?"YES":"NO");
+        logMessage("DecompressGetFormat: Force RGB format: %s", forceRGBOutput?"YES":"NO");
 
         if (header->buffer_type == BTYPE_RGB24 || header->buffer_type == BTYPE_HRGB24)
         {
