@@ -41,10 +41,10 @@ static bool LOG_TO_STDOUT = false;
 #define VERSION 0x00010000 // 1.0
 
 #if _WIN64
-    TCHAR szDescription[] = TEXT("Zoe Lossless Codec (64 bits) v1.0.6");
+    TCHAR szDescription[] = TEXT("Zoe Lossless Codec (64 bits) v1.0.7");
     TCHAR szName[]        = TEXT("ZoeLosslessCodec64");
 #else
-    TCHAR szDescription[] = TEXT("Zoe Lossless Codec (32 bits) v1.0.6");
+    TCHAR szDescription[] = TEXT("Zoe Lossless Codec (32 bits) v1.0.7");
     TCHAR szName[]        = TEXT("ZoeLosslessCodec32");
 #endif
 
@@ -475,10 +475,10 @@ DWORD ZoeCodecInstance::DecompressQuery(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOH
     if (!lpbiIn)
         return ICERR_BADFORMAT;
 
-    logMessage("DecompressQuery in FOURCC:%s bitCount:%d", fourCCStr(lpbiIn->biCompression), lpbiIn->biBitCount);
+    logMessage("DecompressQuery in FOURCC:%s bitCount:%d w:%d h:%d", fourCCStr(lpbiIn->biCompression), lpbiIn->biBitCount, lpbiIn->biWidth, lpbiIn->biHeight);
     
     if (lpbiOut)
-        logMessage("DecompressQuery out FOURCC:%s bitCount:%d", fourCCStr(lpbiOut->biCompression), lpbiOut->biBitCount);
+        logMessage("DecompressQuery out FOURCC:%s bitCount:%d w:%d h:%d", fourCCStr(lpbiOut->biCompression), lpbiOut->biBitCount, lpbiOut->biWidth, lpbiOut->biHeight);
 
     if (lpbiIn->biCompression!=FOURCC_AZCL)
     {
@@ -504,8 +504,11 @@ DWORD ZoeCodecInstance::DecompressQuery(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOH
 
     if (lpbiOut)
     {
-        // Identify all possible output formats for each BTYPE
+        // Decompressing to a different size is not supported
+        if (lpbiIn->biWidth!=lpbiOut->biWidth || lpbiIn->biHeight!=lpbiOut->biHeight)
+            return ICERR_BADFORMAT;
 
+        // Identify all possible output formats for each BTYPE
         switch (header->buffer_type)
         {
         case BTYPE_HRGB24:

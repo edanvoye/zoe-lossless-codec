@@ -19,7 +19,7 @@ as well as RGB24, RGB32 and UYVY. RGB formats are encoded per-channel without an
   2014-05-05 E. Danvoye    1.04 Add UYVY decompression directly to RGB24
   2014-05-09 E. Danvoye    1.05 Fix playback in Windows Media Player and Adobe Premiere (by supporting negative height and RGB32 output)
   2014-05-12 E. Danvoye    1.06 Hack for Motionbuilder, forge RGB output for YUV formats
-
+  2014-05-12 E. Danvoye    1.07 Fixed playback in Sony Vegas
 
 =========
 
