@@ -39,47 +39,7 @@ template class ZoeHuffmanCodec<char, 8, 2>;
 template class ZoeHuffmanCodec<char, 8, 3>;
 template class ZoeHuffmanCodec<char, 8, 4>;
 template class ZoeHuffmanCodec<short, 10, 1>;
-
-template <typename T>
-class BitPacker
-{
-public:
-    BitPacker(char* bufferStart) : next((T*)bufferStart), start((T*)bufferStart), current(0), current_bitcount(0) { }
-    __inline void pack(int bitcount, unsigned bits) // relevant bits are in the LSB of bits
-    {
-        if (current_bitcount+bitcount > (sizeof(T)*8))
-        {
-            unsigned first_bitcount = (sizeof(T)*8)-current_bitcount;
-            unsigned second_bitcount = bitcount-first_bitcount;
-
-            *next = (current<<first_bitcount) | (bits>>second_bitcount);
-            next++;
-
-            current = bits;
-            current_bitcount = second_bitcount;
-        }
-        else
-        {
-            current = (current<<bitcount) | bits;
-            current_bitcount += bitcount;
-        }
-    }
-    unsigned flush()
-    {
-        if (current_bitcount>0)
-        {
-            *next = current << ((sizeof(T)*8)-current_bitcount);
-            next++;
-        }
-
-        return (unsigned)((char*)next-(char*)start);
-    }
-private:
-    T * next;
-    T * start;
-    T current;
-    unsigned current_bitcount;
-};
+template class ZoeHuffmanCodec<short, 12, 1>;
 
 struct HuffNode {
 	unsigned freq;
@@ -181,22 +141,24 @@ ZoeHuffmanCodec<T, UsedBits, Channels>::ZoeHuffmanCodec(int width, int height)
 }
 
 template <typename T, int UsedBits, int Channels>
+template <typename ReaderT>
 unsigned ZoeHuffmanCodec<T, UsedBits, Channels>::encode(const T * image_src, char * image_dest)
 {
 	// Character usage count
     for (int c=0;c<Channels;c++)
 	    for (int i=0;i<(1<<UsedBits);i++)
 		    encoder_data[c].char_count[i] = std::make_pair(i,0);
+
+    ReaderT reader(image_src);
 		
 	// Run predictor + accumulate usage stats
 	for (int y=0;y<image_height;y++)
 	{
-		const T * row_ptr = &image_src[y*image_width*Channels];
         T prev[Channels] = {0};
 		for (int i=0;i<image_width*Channels;i++)
 		{
             const int c = i%Channels;
-			const T b = row_ptr[i];
+			const T b = reader.next();
 			const T d = (b-prev[c]); // Simple left-predictor
             
 			std::make_unsigned<T>::type du = ((std::make_unsigned<T>::type)d)&BitMask;
@@ -237,14 +199,15 @@ unsigned ZoeHuffmanCodec<T, UsedBits, Channels>::encode(const T * image_src, cha
 	// For each line, build compressed stream by concatenating bits
 	BitPacker<unsigned> bitPacker(&image_dest[compressed_size]);
 
+    reader.reset();
+
 	for (int y=0;y<image_height;y++)
 	{
-        const T * row_ptr = &image_src[y*image_width*Channels];
         T prev[Channels] = {0};
 		for (int x=0;x<image_width*Channels;x++)
 		{
             const int c = x%Channels;
-            const T b = row_ptr[x];
+            const T b = reader.next();
             const T d = (b-prev[c]); // Simple left-predictor
             unsigned int du = ((unsigned int)(std::make_unsigned<T>::type)d)&BitMask;
 
@@ -457,3 +420,19 @@ template bool ZoeHuffmanCodec<char, 8, 3>::decode<char, OutputProcessing::rgb24_
 template bool ZoeHuffmanCodec<char, 8, 1>::decode<char, OutputProcessing::gray_to_rgb32>(const char * image_src, char * image_dest); // Y8 decoded directly to RGB32
 template bool ZoeHuffmanCodec<short, 10, 1>::decode<char, OutputProcessing::gray_to_rgb32>(const char * image_src, char * image_dest); // Y10 decoded directly to RGB32
 template bool ZoeHuffmanCodec<char, 8, 2>::decode<char, OutputProcessing::uyvy_to_rgb32>(const char * image_src, char * image_dest); // UYVY decoded directly to RGB32
+
+template unsigned int ZoeHuffmanCodec<char,8,1>::encode<TrivialBitReader<char> >(char const *,char *);
+template unsigned int ZoeHuffmanCodec<short,10,1>::encode<TrivialBitReader<short> >(short const *,char *);
+template unsigned int ZoeHuffmanCodec<short,10,1>::encode<UnpackBitReader<10,short> >(short const *,char *);
+template unsigned int ZoeHuffmanCodec<char,8,3>::encode<TrivialBitReader<char> >(char const *,char *);
+template unsigned int ZoeHuffmanCodec<char,8,4>::encode<TrivialBitReader<char> >(char const *,char *);
+template unsigned int ZoeHuffmanCodec<char,8,2>::encode<TrivialBitReader<char> >(char const *,char *);
+template unsigned int ZoeHuffmanCodec<short,12,1>::encode<TrivialBitReader<short> >(short const *,char *);
+template unsigned int ZoeHuffmanCodec<short,12,1>::encode<UnpackBitReader<12,short> >(short const *,char *);
+
+template bool ZoeHuffmanCodec<short, 12, 1>::decode<short, OutputProcessing::interleave_yuyv>(const char * image_src, short * image_dest);
+template bool ZoeHuffmanCodec<short, 12, 1>::decode<short, OutputProcessing::Default>(const char * image_src, short * image_dest);
+template bool ZoeHuffmanCodec<short, 12, 1>::decode<char, OutputProcessing::Default>(const char * image_src, char * image_dest);
+template bool ZoeHuffmanCodec<short, 12, 1>::decode<char, OutputProcessing::gray_to_rgb24>(const char * image_src, char * image_dest); // Y12 decoded directly to RGB24
+template bool ZoeHuffmanCodec<short, 12, 1>::decode<char, OutputProcessing::gray_to_rgb32>(const char * image_src, char * image_dest); // Y12 decoded directly to RGB32
+

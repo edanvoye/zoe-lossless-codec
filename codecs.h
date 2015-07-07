@@ -46,6 +46,7 @@ bool Decompress_HY8_To_UYVY(unsigned inSize, unsigned width, unsigned height, co
 bool Decompress_HY8_To_RGB24(unsigned inSize, unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame);
 
 unsigned Compress_Y10_To_HY10(unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame);
+unsigned Compress_PY10_To_HY10(unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame);
 bool Decompress_HY10_To_Y10(unsigned inSize, unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame);
 bool Decompress_HY10_To_UYVY(unsigned inSize, unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame);
 bool Decompress_HY10_To_RGB24(unsigned inSize, unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame);
@@ -67,3 +68,15 @@ bool Decompress_HRGB24_To_RGB32(unsigned inSize, unsigned width, unsigned height
 bool Decompress_HY8_To_RGB32(unsigned inSize, unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame);
 bool Decompress_HY10_To_RGB32(unsigned inSize, unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame);
 bool Decompress_HUYVY_To_RGB32(unsigned inSize, unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame);
+
+unsigned Compress_Y12_To_Y12(unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame);
+bool Decompress_Y12_To_Y12(unsigned inSize, unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame);
+bool Decompress_Y12_To_UYVY(unsigned inSize, unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame);
+unsigned Compress_Y12_To_HY12(unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame);
+unsigned Compress_PY12_To_HY12(unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame);
+bool Decompress_HY12_To_Y12(unsigned inSize, unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame);
+bool Decompress_HY12_To_UYVY(unsigned inSize, unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame);
+bool Decompress_HY12_To_RGB24(unsigned inSize, unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame);
+bool Decompress_Y12_To_Y8(unsigned inSize, unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame);
+bool Decompress_HY12_To_Y8(unsigned inSize, unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame);
+bool Decompress_HY12_To_RGB32(unsigned inSize, unsigned width, unsigned height, const unsigned char* in_frame, unsigned char* out_frame);

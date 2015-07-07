@@ -46,7 +46,6 @@ BOOL WINAPI DllMain( HMODULE hModule, DWORD  ul_reason_for_call, LPVOID lpReserv
 
 ZOECODEC_API LRESULT WINAPI DriverProc(DWORD dwDriverID, HDRVR hDriver, UINT uiMessage, LPARAM lParam1, LPARAM lParam2) 
 {
-    ZoeCodecInstance* pi = (ZoeCodecInstance*)(UINT)dwDriverID;
 
     switch (uiMessage) {
     case DRV_LOAD:
@@ -56,41 +55,40 @@ ZOECODEC_API LRESULT WINAPI DriverProc(DWORD dwDriverID, HDRVR hDriver, UINT uiM
         return (LRESULT)1L;
 
     case DRV_OPEN:
-        return (LRESULT)(DWORD)(UINT) ZoeCodecInstance::OpenCodec((ICOPEN*) lParam2);
+        return (LRESULT)1L;
 
     case DRV_CLOSE:
-        if (pi) ZoeCodecInstance::CloseCodec(pi);
         return (LRESULT)1L;
 
     case DRV_QUERYCONFIGURE:
         return (LRESULT)1L;
 
     case DRV_CONFIGURE:
-        pi->Configure((HWND)lParam1);
+        Configure((HWND)lParam1);
         return DRV_OK;
 
     case ICM_CONFIGURE:
         //  return ICERR_OK if you will do a configure box, error otherwise
         if (lParam1 == -1)
-            return pi->QueryConfigure() ? ICERR_OK : ICERR_UNSUPPORTED;
+            return QueryConfigure() ? ICERR_OK : ICERR_UNSUPPORTED;
         else
-            return pi->Configure((HWND)lParam1);
+            return Configure((HWND)lParam1);
 
     case ICM_ABOUT:
         //  return ICERR_OK if you will do a about box, error otherwise
         if (lParam1 == -1)
-            return pi->QueryAbout() ? ICERR_OK : ICERR_UNSUPPORTED;
+            return QueryAbout() ? ICERR_OK : ICERR_UNSUPPORTED;
         else
-            return pi->About((HWND)lParam1);
+            return About((HWND)lParam1);
 
     case ICM_GETSTATE:
-        return pi->GetState((LPVOID)lParam1, (DWORD)lParam2);
+        return GetState((LPVOID)lParam1, (DWORD)lParam2);
 
     case ICM_SETSTATE:
-        return pi->SetState((LPVOID)lParam1, (DWORD)lParam2);
+        return SetState((LPVOID)lParam1, (DWORD)lParam2);
 
     case ICM_GETINFO:
-        return pi->GetInfo((ICINFO*)lParam1, (DWORD)lParam2);
+        return GetInfo((ICINFO*)lParam1, (DWORD)lParam2);
 
     case ICM_GETDEFAULTQUALITY:
         if (lParam1) {
@@ -100,42 +98,42 @@ ZOECODEC_API LRESULT WINAPI DriverProc(DWORD dwDriverID, HDRVR hDriver, UINT uiM
         break;
 
     case ICM_COMPRESS:
-        return pi->Compress((ICCOMPRESS*)lParam1, (DWORD)lParam2);
+        return Compress((ICCOMPRESS*)lParam1, (DWORD)lParam2);
 
     case ICM_COMPRESS_QUERY:
-        return pi->CompressQuery((LPBITMAPINFOHEADER)lParam1, (LPBITMAPINFOHEADER)lParam2);
+        return CompressQuery((LPBITMAPINFOHEADER)lParam1, (LPBITMAPINFOHEADER)lParam2);
 
     case ICM_COMPRESS_BEGIN:
-        return pi->CompressBegin((LPBITMAPINFOHEADER)lParam1, (LPBITMAPINFOHEADER)lParam2);
+        return CompressBegin((LPBITMAPINFOHEADER)lParam1, (LPBITMAPINFOHEADER)lParam2);
 
     case ICM_COMPRESS_GET_FORMAT:
-        return pi->CompressGetFormat((LPBITMAPINFOHEADER)lParam1, (LPBITMAPINFOHEADER)lParam2);
+        return CompressGetFormat((LPBITMAPINFOHEADER)lParam1, (LPBITMAPINFOHEADER)lParam2);
 
     case ICM_COMPRESS_GET_SIZE:
-        return pi->CompressGetSize((LPBITMAPINFOHEADER)lParam1, (LPBITMAPINFOHEADER)lParam2);
+        return CompressGetSize((LPBITMAPINFOHEADER)lParam1, (LPBITMAPINFOHEADER)lParam2);
 
     case ICM_COMPRESS_END:
-        return pi->CompressEnd();
+        return CompressEnd();
 
     case ICM_DECOMPRESS_QUERY:
         // The ICM_DECOMPRESS_QUERY message queries a video decompression driver to determine if it supports a specific input format or if it can decompress a specific input format to a specific output format.
-        return pi->DecompressQuery((LPBITMAPINFOHEADER)lParam1, (LPBITMAPINFOHEADER)lParam2);
+        return DecompressQuery((LPBITMAPINFOHEADER)lParam1, (LPBITMAPINFOHEADER)lParam2);
 
     case ICM_DECOMPRESS:
-        return pi->Decompress((ICDECOMPRESS*)lParam1, (DWORD)lParam2);
+        return Decompress((ICDECOMPRESS*)lParam1, (DWORD)lParam2);
 
     case ICM_DECOMPRESS_BEGIN:
-        return pi->DecompressBegin((LPBITMAPINFOHEADER)lParam1, (LPBITMAPINFOHEADER)lParam2);
+        return DecompressBegin((LPBITMAPINFOHEADER)lParam1, (LPBITMAPINFOHEADER)lParam2);
 
     case ICM_DECOMPRESS_GET_FORMAT:
         // The ICM_DECOMPRESS_GET_FORMAT message requests the output format of the decompressed data from a video decompression driver.
-        return pi->DecompressGetFormat((LPBITMAPINFOHEADER)lParam1, (LPBITMAPINFOHEADER)lParam2);
+        return DecompressGetFormat((LPBITMAPINFOHEADER)lParam1, (LPBITMAPINFOHEADER)lParam2);
 
     case ICM_DECOMPRESS_GET_PALETTE:
-        return pi->DecompressGetPalette((LPBITMAPINFOHEADER)lParam1, (LPBITMAPINFOHEADER)lParam2);
+        return DecompressGetPalette((LPBITMAPINFOHEADER)lParam1, (LPBITMAPINFOHEADER)lParam2);
 
     case ICM_DECOMPRESS_END:
-        return pi->DecompressEnd();
+        return DecompressEnd();
 
         // Driver messages
 

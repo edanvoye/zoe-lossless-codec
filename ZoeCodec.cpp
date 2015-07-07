@@ -35,16 +35,16 @@
 #include "ZoeCodec.h"
 #include "codecs.h"
 
-static bool LOG_TO_FILE = false;
-static bool LOG_TO_STDOUT = false;
+//#define LOG_TO_FILE
+//#define LOG_TO_STDOUT
 
-#define VERSION 0x00010000 // 1.0
+#define VERSION 0x00010100 // 1.1.1
 
 #if _WIN64
-    TCHAR szDescription[] = TEXT("Zoe Lossless Codec (64 bits) v1.0.7");
+    TCHAR szDescription[] = TEXT("Zoe Lossless Codec (64 bits) v1.1.1");
     TCHAR szName[]        = TEXT("ZoeLosslessCodec64");
 #else
-    TCHAR szDescription[] = TEXT("Zoe Lossless Codec (32 bits) v1.0.7");
+    TCHAR szDescription[] = TEXT("Zoe Lossless Codec (32 bits) v1.1.1");
     TCHAR szName[]        = TEXT("ZoeLosslessCodec32");
 #endif
 
@@ -87,6 +87,11 @@ enum eBufferTypes {
     BTYPE_HRGB32,
     BTYPE_HUYVY,
 
+    BTYPE_PY10, // Packed 10 bit grayscale data (16 pixels x 10 bit grouped in 20 bytes)
+
+    BTYPE_Y12,
+    BTYPE_HY12,
+
     BTYPE_COUNT
 };
 
@@ -103,6 +108,7 @@ BOOL IsValidType(int type)
     return type>BTYPE_NONE && type<BTYPE_COUNT;
 }
 
+#if defined(LOG_TO_FILE) || defined(LOG_TO_STDOUT)
 void logMessage(const char * format, ...)
 {
     char moduleName[MAX_PATH];
@@ -113,7 +119,7 @@ void logMessage(const char * format, ...)
     va_start(args, format);
     vsnprintf_s(buffer, 255, format, args);
 
-    if (LOG_TO_FILE)
+#if defined(LOG_TO_FILE)
     {
         std::ofstream logFile("c:\\temp\\ZoeCodec.log", std::ios::app);
         if (logFile.is_open())
@@ -121,13 +127,16 @@ void logMessage(const char * format, ...)
             logFile << buffer << " (" << moduleName << ")" << std::endl;
         }
     }
-    if (LOG_TO_STDOUT)
+#endif
+#if defined(LOG_TO_STDOUT)
     {
         std::cout << "ZoeCodec> " << buffer << " (" << moduleName << ")" << std::endl;
     }
+#endif
 
     va_end(args);
 }
+#endif
 
 bool exeRequiresForceRGB()
 {
@@ -165,6 +174,10 @@ bool IsFormatSupported(LPBITMAPINFOHEADER lpbiIn)
         return TRUE;
     if (lpbiIn->biCompression == mmioFOURCC('Y', '1', '0', ' ') && lpbiIn->biBitCount == 16)
         return TRUE;
+    if (lpbiIn->biCompression == mmioFOURCC('Y', '1', '2', ' ') && lpbiIn->biBitCount == 16)
+        return TRUE;
+    if (lpbiIn->biCompression == mmioFOURCC('P', 'Y', '1', '0') && lpbiIn->biBitCount == 16)
+        return TRUE;
     if (lpbiIn->biCompression == mmioFOURCC('U', 'Y', 'V', 'Y') && lpbiIn->biBitCount == 16)
         return TRUE;
 
@@ -184,6 +197,10 @@ void FillHeaderForInput(const LPBITMAPINFOHEADER lpbiIn, ZoeCodecHeader* header)
         header->buffer_type = BTYPE_HY8; // BTYPE_Y8
     else if (lpbiIn->biCompression == mmioFOURCC('Y', '1', '0', ' ') && lpbiIn->biBitCount == 16)
         header->buffer_type = BTYPE_HY10; // BTYPE_Y10
+    else if (lpbiIn->biCompression == mmioFOURCC('Y', '1', '2', ' ') && lpbiIn->biBitCount == 16)
+        header->buffer_type = BTYPE_HY12; // BTYPE_Y12
+    else if (lpbiIn->biCompression == mmioFOURCC('P', 'Y', '1', '0') && lpbiIn->biBitCount == 16)
+        header->buffer_type = BTYPE_HY10; // BTYPE_PY10
     else if (lpbiIn->biCompression == mmioFOURCC('U', 'Y', 'V', 'Y') && lpbiIn->biBitCount == 16)
         header->buffer_type = BTYPE_HUYVY; // Compressed UYVY
 
@@ -191,61 +208,41 @@ void FillHeaderForInput(const LPBITMAPINFOHEADER lpbiIn, ZoeCodecHeader* header)
     header->pad1 = 0;
 }
 
-ZoeCodecInstance* ZoeCodecInstance::OpenCodec(ICOPEN* icinfo)
-{
-    if (icinfo && icinfo->fccType != ICTYPE_VIDEO)
-        return NULL;
-
-    ZoeCodecInstance* pinst = new ZoeCodecInstance();
-
-    if (icinfo) 
-        icinfo->dwError = pinst ? ICERR_OK : ICERR_MEMORY;
-
-    logMessage("Open instance %p", pinst);
-
-    return pinst;
-}
-
-DWORD ZoeCodecInstance::CloseCodec(ZoeCodecInstance* pinst)
-{
-    delete pinst;
-
-    return 1;
-}
-
-BOOL ZoeCodecInstance::QueryAbout()
+BOOL QueryAbout()
 {
     return FALSE;
 }
 
-DWORD ZoeCodecInstance::About(HWND hwnd)
+DWORD About(HWND hwnd)
 {
     return ICERR_ERROR;
 }
 
-BOOL ZoeCodecInstance::QueryConfigure()
+BOOL QueryConfigure()
 {
     return FALSE;
 }
 
-DWORD ZoeCodecInstance::Configure(HWND hwnd)
+DWORD Configure(HWND hwnd)
 {
     return ICERR_ERROR;
 }
 
-DWORD ZoeCodecInstance::GetState(LPVOID pv, DWORD dwSize)
+DWORD GetState(LPVOID pv, DWORD dwSize)
 {
     return 0; // no state information
 }
 
-DWORD ZoeCodecInstance::SetState(LPVOID pv, DWORD dwSize)
+DWORD SetState(LPVOID pv, DWORD dwSize)
 {
     return 0; // no state information
 }
 
-DWORD ZoeCodecInstance::GetInfo(ICINFO* icinfo, DWORD dwSize)
+DWORD GetInfo(ICINFO* icinfo, DWORD dwSize)
 {
+#if defined(LOG_TO_FILE) || defined(LOG_TO_STDOUT)
     logMessage("GetInfo");
+#endif
 
     if (icinfo == NULL)
         return sizeof(ICINFO);
@@ -266,22 +263,26 @@ DWORD ZoeCodecInstance::GetInfo(ICINFO* icinfo, DWORD dwSize)
     return sizeof(ICINFO);
 }
 
-DWORD ZoeCodecInstance::CompressQuery(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpbiOut)
+DWORD CompressQuery(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpbiOut)
 {
     if (!lpbiIn)
         return ICERR_BADFORMAT;
 
+#if defined(LOG_TO_FILE) || defined(LOG_TO_STDOUT)
     logMessage("CompressQuery in FOURCC:%s bitCount:%d", fourCCStr(lpbiIn->biCompression), lpbiIn->biBitCount);
 
     if (lpbiOut)
         logMessage("CompressQuery out FOURCC:%s bitCount:%d", fourCCStr(lpbiOut->biCompression), lpbiOut->biBitCount);
+#endif
 
     return (IsFormatSupported(lpbiIn)) ? ICERR_OK : ICERR_BADFORMAT;
 }
 
-DWORD ZoeCodecInstance::CompressGetFormat(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpbiOut)
+DWORD CompressGetFormat(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpbiOut)
 {
+#if defined(LOG_TO_FILE) || defined(LOG_TO_STDOUT)
     logMessage("CompressGetFormat");
+#endif
 
     if (!IsFormatSupported(lpbiIn))
         return ICERR_BADFORMAT;
@@ -309,29 +310,35 @@ DWORD ZoeCodecInstance::CompressGetFormat(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINF
     return ICERR_OK;
 }
 
-DWORD ZoeCodecInstance::CompressBegin(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpbiOut)
+DWORD CompressBegin(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpbiOut)
 {
+#if defined(LOG_TO_FILE) || defined(LOG_TO_STDOUT)
     logMessage("CompressBegin");
+#endif
 
     // Initialization
 
     return ICERR_OK;
 }
 
-DWORD ZoeCodecInstance::CompressGetSize(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpbiOut)
+DWORD CompressGetSize(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpbiOut)
 {
+#if defined(LOG_TO_FILE) || defined(LOG_TO_STDOUT)
     logMessage("CompressGetSize width:%d height:%d bits:%d", lpbiIn->biWidth, lpbiIn->biHeight, lpbiIn->biBitCount);
+#endif
 
     // Worst case scenario is full uncompressed size
     return (lpbiIn->biWidth * abs(lpbiIn->biHeight) * lpbiIn->biBitCount) / 8;
 }
 
-DWORD ZoeCodecInstance::Compress(ICCOMPRESS* icinfo, DWORD dwSize)
+DWORD Compress(ICCOMPRESS* icinfo, DWORD dwSize)
 {
+#if defined(LOG_TO_FILE) || defined(LOG_TO_STDOUT)
     logMessage("Compress");
+#endif
 
     // TODO, should we flip-y the image before compression if the input biHeight is negative ?
-    // See comment in ZoeCodecInstance::Decompress
+    // See comment in Decompress
 
     if (!IsFormatSupported(icinfo->lpbiInput))
         return ICERR_BADFORMAT;
@@ -396,13 +403,21 @@ DWORD ZoeCodecInstance::Compress(ICCOMPRESS* icinfo, DWORD dwSize)
         }
         else if (header->buffer_type == BTYPE_HY10)
         {
-            if (icinfo->lpbiInput->biCompression != mmioFOURCC('Y', '1', '0', ' ') || icinfo->lpbiInput->biBitCount != 16)
-                return ICERR_BADFORMAT;
-
             *icinfo->lpdwFlags = AVIIF_KEYFRAME;
 
-            DWORD size = Compress_Y10_To_HY10(icinfo->lpbiInput->biWidth, abs(icinfo->lpbiInput->biHeight), in_frame, out_frame);
-            icinfo->lpbiOutput->biSizeImage = size;
+            if (icinfo->lpbiInput->biCompression == mmioFOURCC('Y', '1', '0', ' ') && icinfo->lpbiInput->biBitCount == 16)
+            {
+                DWORD size = Compress_Y10_To_HY10(icinfo->lpbiInput->biWidth, abs(icinfo->lpbiInput->biHeight), in_frame, out_frame);
+                icinfo->lpbiOutput->biSizeImage = size;
+            }
+            else if (icinfo->lpbiInput->biCompression == mmioFOURCC('P', 'Y', '1', '0') && icinfo->lpbiInput->biBitCount == 16)
+            {
+                DWORD size = Compress_PY10_To_HY10(icinfo->lpbiInput->biWidth, abs(icinfo->lpbiInput->biHeight), in_frame, out_frame);
+                icinfo->lpbiOutput->biSizeImage = size;
+            }
+            else
+                return ICERR_BADFORMAT;
+
 
             return ICERR_OK;
         }
@@ -414,6 +429,33 @@ DWORD ZoeCodecInstance::Compress(ICCOMPRESS* icinfo, DWORD dwSize)
             *icinfo->lpdwFlags = AVIIF_KEYFRAME;
 
             DWORD size = Compress_Y10_To_Y10(icinfo->lpbiInput->biWidth, abs(icinfo->lpbiInput->biHeight), in_frame, out_frame);
+            icinfo->lpbiOutput->biSizeImage = size;
+
+            return ICERR_OK;
+        }
+        else if (header->buffer_type == BTYPE_HY12)
+        {
+            *icinfo->lpdwFlags = AVIIF_KEYFRAME;
+
+            if (icinfo->lpbiInput->biCompression == mmioFOURCC('Y', '1', '2', ' ') && icinfo->lpbiInput->biBitCount == 16)
+            {
+                DWORD size = Compress_Y12_To_HY12(icinfo->lpbiInput->biWidth, abs(icinfo->lpbiInput->biHeight), in_frame, out_frame);
+                icinfo->lpbiOutput->biSizeImage = size;
+            }
+            else
+                return ICERR_BADFORMAT;
+
+
+            return ICERR_OK;
+        }
+        else if (header->buffer_type == BTYPE_Y12)
+        {
+            if (icinfo->lpbiInput->biCompression != mmioFOURCC('Y', '1', '2', ' ') || icinfo->lpbiInput->biBitCount != 16)
+                return ICERR_BADFORMAT;
+
+            *icinfo->lpdwFlags = AVIIF_KEYFRAME;
+
+            DWORD size = Compress_Y12_To_Y12(icinfo->lpbiInput->biWidth, abs(icinfo->lpbiInput->biHeight), in_frame, out_frame);
             icinfo->lpbiOutput->biSizeImage = size;
 
             return ICERR_OK;
@@ -456,49 +498,63 @@ DWORD ZoeCodecInstance::Compress(ICCOMPRESS* icinfo, DWORD dwSize)
         }
     }
 
+#if defined(LOG_TO_FILE) || defined(LOG_TO_STDOUT)
     logMessage("Compress Failed ICERR_ERROR");
+#endif
 
     return ICERR_ERROR;
 }
 
-DWORD ZoeCodecInstance::CompressEnd()
+DWORD CompressEnd()
 {
+#if defined(LOG_TO_FILE) || defined(LOG_TO_STDOUT)
     logMessage("CompressEnd");
+#endif
 
     // Cleanup
 
     return ICERR_OK;
 }
 
-DWORD ZoeCodecInstance::DecompressQuery(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpbiOut)
+DWORD DecompressQuery(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpbiOut)
 {
     if (!lpbiIn)
         return ICERR_BADFORMAT;
 
+#if defined(LOG_TO_FILE) || defined(LOG_TO_STDOUT)
     logMessage("DecompressQuery in FOURCC:%s bitCount:%d w:%d h:%d", fourCCStr(lpbiIn->biCompression), lpbiIn->biBitCount, lpbiIn->biWidth, lpbiIn->biHeight);
     
     if (lpbiOut)
         logMessage("DecompressQuery out FOURCC:%s bitCount:%d w:%d h:%d", fourCCStr(lpbiOut->biCompression), lpbiOut->biBitCount, lpbiOut->biWidth, lpbiOut->biHeight);
+#endif
 
     if (lpbiIn->biCompression!=FOURCC_AZCL)
     {
+#if defined(LOG_TO_FILE) || defined(LOG_TO_STDOUT)
         logMessage("Can only decompress AZCL");
+#endif
         return ICERR_BADFORMAT;
     }
 
     if (lpbiIn->biSize < sizeof(BITMAPINFOHEADER) + sizeof(ZoeCodecHeader))
     {
+#if defined(LOG_TO_FILE) || defined(LOG_TO_STDOUT)
         logMessage("Bad header");
+#endif
         return ICERR_BADFORMAT;
     }
 
     const ZoeCodecHeader* header = (const ZoeCodecHeader*)(&lpbiIn[1]);
 
+#if defined(LOG_TO_FILE) || defined(LOG_TO_STDOUT)
     logMessage("DecompressQuery version:%d buffer_type:%d", header->version, header->buffer_type);
+#endif
 
     if (header->version != 1 || !IsValidType(header->buffer_type))
     {
+#if defined(LOG_TO_FILE) || defined(LOG_TO_STDOUT)
         logMessage("Bad header");
+#endif
         return ICERR_BADFORMAT;
     }
 
@@ -550,6 +606,20 @@ DWORD ZoeCodecInstance::DecompressQuery(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOH
             if (lpbiOut->biCompression == BI_RGB && lpbiOut->biBitCount==24)
                 return ICERR_OK;
             break;
+        case BTYPE_HY12:
+            if (lpbiOut->biCompression == BI_RGB && lpbiOut->biBitCount==32)
+                return ICERR_OK;
+            // intentional fall-thru to next case
+        case BTYPE_Y12:
+            if (lpbiOut->biCompression == mmioFOURCC('Y', '1', '2', ' ') && lpbiOut->biBitCount==16)
+                return ICERR_OK;
+            if (lpbiOut->biCompression == mmioFOURCC('U', 'Y', 'V', 'Y') && lpbiOut->biBitCount==16) // lossy (12->8)
+                return ICERR_OK;
+            if (lpbiOut->biCompression == mmioFOURCC('Y', '8', ' ', ' ') && lpbiOut->biBitCount==8) // lossy (12->8)
+                return ICERR_OK;
+            if (lpbiOut->biCompression == BI_RGB && lpbiOut->biBitCount==24)
+                return ICERR_OK;
+            break;
         case BTYPE_HUYVY:
             if (lpbiOut->biCompression == mmioFOURCC('U', 'Y', 'V', 'Y') && lpbiOut->biBitCount==16)
                 return ICERR_OK;
@@ -560,26 +630,34 @@ DWORD ZoeCodecInstance::DecompressQuery(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOH
             break;
         }
 
+#if defined(LOG_TO_FILE) || defined(LOG_TO_STDOUT)
         logMessage("Output not supported");
+#endif
         return ICERR_BADFORMAT;
     }
 
     return ICERR_OK;
 }
 
-DWORD ZoeCodecInstance::DecompressGetFormat(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpbiOut)
+DWORD DecompressGetFormat(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpbiOut)
 {
+#if defined(LOG_TO_FILE) || defined(LOG_TO_STDOUT)
     logMessage("DecompressGetFormat");
+#endif
 
     if (lpbiIn->biCompression != FOURCC_AZCL)
     {
+#if defined(LOG_TO_FILE) || defined(LOG_TO_STDOUT)
         logMessage("DecompressGetFormat: only AZCL is supported");
+#endif
         return ICERR_BADFORMAT;
     }
 
     if (!lpbiOut)
     {
+#if defined(LOG_TO_FILE) || defined(LOG_TO_STDOUT)
         logMessage("DecompressGetFormat: lpbiOut is null");
+#endif
         return sizeof(BITMAPINFOHEADER); // size of returned structure
     }
 
@@ -595,7 +673,9 @@ DWORD ZoeCodecInstance::DecompressGetFormat(LPBITMAPINFOHEADER lpbiIn, LPBITMAPI
     lpbiOut->biClrUsed = 0;
     lpbiOut->biClrImportant = 0;
 
+#if defined(LOG_TO_FILE) || defined(LOG_TO_STDOUT)    
     logMessage("DecompressGetFormat: Header version:%d type:%d", header->version, header->buffer_type);
+#endif
 
     if (header->version == 1)
     {
@@ -603,7 +683,9 @@ DWORD ZoeCodecInstance::DecompressGetFormat(LPBITMAPINFOHEADER lpbiIn, LPBITMAPI
 
         const bool forceRGBOutput = exeRequiresForceRGB();
 
+#if defined(LOG_TO_FILE) || defined(LOG_TO_STDOUT)        
         logMessage("DecompressGetFormat: Force RGB format: %s", forceRGBOutput?"YES":"NO");
+#endif
 
         if (header->buffer_type == BTYPE_RGB24 || header->buffer_type == BTYPE_HRGB24)
         {
@@ -641,6 +723,19 @@ DWORD ZoeCodecInstance::DecompressGetFormat(LPBITMAPINFOHEADER lpbiIn, LPBITMAPI
                 lpbiOut->biCompression = mmioFOURCC('Y', '1', '0', ' ');
             }
         }
+        else if (header->buffer_type == BTYPE_Y12 || header->buffer_type == BTYPE_HY12)
+        {
+            if (forceRGBOutput)
+            {
+                lpbiOut->biBitCount = 24;
+                lpbiOut->biCompression = BI_RGB;
+            }
+            else
+            {
+                lpbiOut->biBitCount = 16;
+                lpbiOut->biCompression = mmioFOURCC('Y', '1', '2', ' ');
+            }
+        }
         else if (header->buffer_type == BTYPE_HUYVY)
         {
             if (forceRGBOutput)
@@ -662,28 +757,34 @@ DWORD ZoeCodecInstance::DecompressGetFormat(LPBITMAPINFOHEADER lpbiIn, LPBITMAPI
         return ICERR_OK;
     }
 
+#if defined(LOG_TO_FILE) || defined(LOG_TO_STDOUT)
     logMessage("DecompressGetFormat Failed ICERR_BADFORMAT");
+#endif
 
     return ICERR_BADFORMAT;
 }
 
-DWORD ZoeCodecInstance::DecompressBegin(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpbiOut)
+DWORD DecompressBegin(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpbiOut)
 {
+#if defined(LOG_TO_FILE) || defined(LOG_TO_STDOUT)
     logMessage("DecompressBegin");
 
     if (lpbiIn)
         logMessage("DecompressBegin in FOURCC:%s bitCount:%d", fourCCStr(lpbiIn->biCompression), lpbiIn->biBitCount);
     if (lpbiOut)
         logMessage("DecompressBegin out FOURCC:%s bitCount:%d", fourCCStr(lpbiOut->biCompression), lpbiOut->biBitCount);
+#endif
 
     // Initialization
 
     return ICERR_OK;
 }
 
-DWORD ZoeCodecInstance::Decompress(ICDECOMPRESS* icinfo, DWORD dwSize)
+DWORD Decompress(ICDECOMPRESS* icinfo, DWORD dwSize)
 {
+#if defined(LOG_TO_FILE) || defined(LOG_TO_STDOUT)
     logMessage("Decompress outW:%d outH:%d outFOURCC:%s outBpp:%d outputsize:%d", icinfo->lpbiOutput->biWidth, icinfo->lpbiOutput->biHeight, fourCCStr(icinfo->lpbiOutput->biCompression), icinfo->lpbiOutput->biBitCount, icinfo->lpbiOutput->biSizeImage);
+#endif
 
     if (icinfo->lpbiInput->biCompression != FOURCC_AZCL)
         return ICERR_BADFORMAT;
@@ -696,7 +797,9 @@ DWORD ZoeCodecInstance::Decompress(ICDECOMPRESS* icinfo, DWORD dwSize)
     
     const ZoeCodecHeader* header = (const ZoeCodecHeader*)(&icinfo->lpbiInput[1]);
 
+#if defined(LOG_TO_FILE) || defined(LOG_TO_STDOUT)
     logMessage("version:%d type:%d", header->version, header->buffer_type);
+#endif
 
     if (header->version == 1)
     {
@@ -806,6 +909,34 @@ DWORD ZoeCodecInstance::Decompress(ICDECOMPRESS* icinfo, DWORD dwSize)
                     return ICERR_OK;
             }
         }
+        else if (header->buffer_type == BTYPE_HY12)
+        {
+            if (icinfo->lpbiOutput->biCompression == mmioFOURCC('Y', '8', ' ', ' ') && icinfo->lpbiOutput->biBitCount == 8)
+            {
+                if (Decompress_HY12_To_Y8(icinfo->lpbiInput->biSizeImage, icinfo->lpbiOutput->biWidth, abs(icinfo->lpbiOutput->biHeight), in_frame, out_frame))
+                    return ICERR_OK;
+            }
+            else if (icinfo->lpbiOutput->biCompression == mmioFOURCC('Y', '1', '2', ' ') && icinfo->lpbiOutput->biBitCount == 16)
+            {
+                if (Decompress_HY12_To_Y12(icinfo->lpbiInput->biSizeImage, icinfo->lpbiOutput->biWidth, abs(icinfo->lpbiOutput->biHeight), in_frame, out_frame))
+                    return ICERR_OK;
+            }
+            else if (icinfo->lpbiOutput->biCompression == mmioFOURCC('U', 'Y', 'V', 'Y') && icinfo->lpbiOutput->biBitCount == 16)
+            {
+                if (Decompress_HY12_To_UYVY(icinfo->lpbiInput->biSizeImage, icinfo->lpbiOutput->biWidth, abs(icinfo->lpbiOutput->biHeight), in_frame, out_frame))
+                    return ICERR_OK;
+            }
+            else if (icinfo->lpbiOutput->biCompression == BI_RGB && icinfo->lpbiOutput->biBitCount == 24)
+            {
+                if (Decompress_HY12_To_RGB24(icinfo->lpbiInput->biSizeImage, icinfo->lpbiOutput->biWidth, abs(icinfo->lpbiOutput->biHeight), in_frame, out_frame))
+                    return ICERR_OK;
+            }
+            else if (icinfo->lpbiOutput->biCompression == BI_RGB && icinfo->lpbiOutput->biBitCount == 32)
+            {
+                if (Decompress_HY12_To_RGB32(icinfo->lpbiInput->biSizeImage, icinfo->lpbiOutput->biWidth, abs(icinfo->lpbiOutput->biHeight), in_frame, out_frame))
+                    return ICERR_OK;
+            }
+        }
         else if (header->buffer_type == BTYPE_HUYVY)
         {
             if (icinfo->lpbiOutput->biCompression == mmioFOURCC('U', 'Y', 'V', 'Y') && icinfo->lpbiOutput->biBitCount == 16)
@@ -842,23 +973,47 @@ DWORD ZoeCodecInstance::Decompress(ICDECOMPRESS* icinfo, DWORD dwSize)
                     return ICERR_OK;
             }
         }
+        else if (header->buffer_type == BTYPE_Y12)
+        {
+            if (icinfo->lpbiOutput->biCompression == mmioFOURCC('Y', '8', ' ', ' ') && icinfo->lpbiOutput->biBitCount == 8)
+            {
+                if (Decompress_Y12_To_Y8(icinfo->lpbiInput->biSizeImage, icinfo->lpbiOutput->biWidth, abs(icinfo->lpbiOutput->biHeight), in_frame, out_frame))
+                    return ICERR_OK;
+            }
+            else if (icinfo->lpbiOutput->biCompression == mmioFOURCC('Y', '1', '2', ' ') && icinfo->lpbiOutput->biBitCount == 16)
+            {
+                if (Decompress_Y12_To_Y12(icinfo->lpbiInput->biSizeImage, icinfo->lpbiOutput->biWidth, abs(icinfo->lpbiOutput->biHeight), in_frame, out_frame))
+                    return ICERR_OK;
+            }
+            else if (icinfo->lpbiOutput->biCompression == mmioFOURCC('U', 'Y', 'V', 'Y') && icinfo->lpbiOutput->biBitCount == 16)
+            {
+                if (Decompress_Y12_To_UYVY(icinfo->lpbiInput->biSizeImage, icinfo->lpbiOutput->biWidth, abs(icinfo->lpbiOutput->biHeight), in_frame, out_frame))
+                    return ICERR_OK;
+            }
+        }
     }
 
+#if defined(LOG_TO_FILE) || defined(LOG_TO_STDOUT)   
     logMessage("Decompress Failed ICERR_BADFORMAT");
+#endif
 
     return ICERR_BADFORMAT;
 }
 
-DWORD ZoeCodecInstance::DecompressGetPalette(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpbiOut)
+DWORD DecompressGetPalette(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpbiOut)
 {
+#if defined(LOG_TO_FILE) || defined(LOG_TO_STDOUT)
     logMessage("DecompressGetPalette");
+#endif
 
     return ICERR_BADFORMAT;
 }
 
-DWORD ZoeCodecInstance::DecompressEnd()
+DWORD DecompressEnd()
 {
+#if defined(LOG_TO_FILE) || defined(LOG_TO_STDOUT)
     logMessage("DecompressEnd");
+#endif
 
     // Cleanup
 

@@ -31,11 +31,79 @@ namespace OutputProcessing
     enum {Default, interleave_yuyv, gray_to_rgb24, uyvy_to_rgb24, rgb24_to_rgb32, gray_to_rgb32, uyvy_to_rgb32, rgb24_to_rgb32_revY};
 }
 
-template <typename T, int UsedBits, int Channels>
+template <typename T>
+class TrivialBitReader
+{
+public:
+    TrivialBitReader(const T * ptr) : cur_ptr(ptr), org_ptr(ptr)
+    {}
+    T next() 
+    {
+        T value = *cur_ptr;
+        cur_ptr++;
+        return value;
+    }
+    void reset()
+    {
+        cur_ptr = org_ptr;
+    }
+    typedef T typeT;
+private:
+    const T* cur_ptr;
+    const T* org_ptr;
+};
+
+template <int bitCount, typename outputT>
+class UnpackBitReader
+{
+public:
+    UnpackBitReader(const outputT * ptr) : cur_ptr((const char *)ptr), org_ptr((const char *)ptr), bits(8)
+    {}
+    outputT next() 
+    {
+        // cur_ptr is the pointer to the current byte
+        // bits is the current offset in the current byte (how many bits are already read in this byte)
+
+        // read remaining bits in the current byte
+        outputT mask = (1<<(bits)) - 1;
+        outputT value = (*cur_ptr)&mask;
+
+        // goto next byte
+        cur_ptr++;
+        const int remaining_bits = bitCount-bits;
+        if (remaining_bits>0)
+        {
+            // read second part
+            outputT mask = ((1<<remaining_bits) - 1) << (8-remaining_bits);
+            value = (value<<remaining_bits) | (((*cur_ptr)&mask)>> (8-remaining_bits));
+            bits = 8-remaining_bits;
+            if (bits==0)
+            {
+                cur_ptr++;
+                bits = 8;
+            }
+        }
+
+        return value;
+    }
+    void reset()
+    {
+        cur_ptr = org_ptr;
+    }
+    typedef outputT typeT;
+private:
+    int bits;
+    const char* cur_ptr;
+    const char* org_ptr;
+};
+
+template <typename T, int UsedBits, int Channels >
 class ZoeHuffmanCodec
 {
 public:
 	ZoeHuffmanCodec(int width, int height);
+
+    template <typename ReaderT>
 	unsigned encode(const T * src, char * dest);
     
     template <typename To, int op>
@@ -58,4 +126,45 @@ private:
 	    unsigned huff_bits[1<<UsedBits];
 	    unsigned huff_length[1<<UsedBits];
     } encoder_data[Channels];
+};
+
+template <typename T>
+class BitPacker
+{
+public:
+    BitPacker(char* bufferStart) : next((T*)bufferStart), start((T*)bufferStart), current(0), current_bitcount(0) { }
+    __inline void pack(int bitcount, unsigned bits) // relevant bits are in the LSB of bits
+    {
+        if (current_bitcount+bitcount > (sizeof(T)*8))
+        {
+            unsigned first_bitcount = (sizeof(T)*8)-current_bitcount;
+            unsigned second_bitcount = bitcount-first_bitcount;
+
+            *next = (current<<first_bitcount) | (bits>>second_bitcount);
+            next++;
+
+            current = bits;
+            current_bitcount = second_bitcount;
+        }
+        else
+        {
+            current = (current<<bitcount) | bits;
+            current_bitcount += bitcount;
+        }
+    }
+    unsigned flush()
+    {
+        if (current_bitcount>0)
+        {
+            *next = current << ((sizeof(T)*8)-current_bitcount);
+            next++;
+        }
+
+        return (unsigned)((char*)next-(char*)start);
+    }
+private:
+    T * next;
+    T * start;
+    T current;
+    unsigned current_bitcount;
 };
