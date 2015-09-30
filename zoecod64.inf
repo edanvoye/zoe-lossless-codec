@@ -1,0 +1,48 @@
+;
+; Zoe Lossless AVI video codec (64 bit)
+;
+; Copyright (c) 2013 Activision
+;
+[version]
+signature="$CHICAGO$"
+Class = MEDIA
+
+[DefaultInstall]
+CopyFiles=ZOECOD.Files.Inf,ZOECOD.Files.Dll
+AddReg=ZOECOD.Reg
+MediaType = SOFTWARE
+
+[Remove_AZCL]
+DelFiles=ZOECOD.Files.Dll,ZOECOD.Files.Inf
+DelReg=ZOECOD.Reg
+
+[SourceDisksNames]
+1="Zoe Lossless codec (64bit)",,1
+
+[SourceDisksFiles]
+ZOECOD64.dll=1
+ZOECOD64.INF=1
+
+[Installable.Drivers]
+AZCL = 1:ZOECOD64.dll, "vidc.AZCL", "Zoe Lossless codec (64bit) [AZCL]",,,
+
+[DestinationDirs]
+ZOECOD.Files.Inf=17
+ZOECOD.Files.Dll=11
+
+[ZOECOD.Files.Inf]
+ZOECOD64.INF
+
+[ZOECOD.Files.Dll]
+ZOECOD64.DLL
+
+[ZOECOD.Reg]
+HKLM,SOFTWARE\Microsoft\Windows NT\CurrentVersion\drivers32,vidc.AZCL,,ZOECOD64.dll
+HKLM,SOFTWARE\Microsoft\Windows NT\CurrentVersion\drivers.desc, ZOECOD64.dll,, "Zoe Lossless codec (64bit)"
+HKLM,SYSTEM\CurrentControlSet\Control\MediaResources\icm\VIDC.AZCL,Description,,"Zoe Lossless codec (64bit) [AZCL]"
+HKLM,SYSTEM\CurrentControlSet\Control\MediaResources\icm\VIDC.AZCL,Driver,,"ZOECOD64.dll"
+HKLM,SYSTEM\CurrentControlSet\Control\MediaResources\icm\VIDC.AZCL,FriendlyName,,"Zoe Lossless codec (64bit) [AZCL]"
+
+HKLM,Software\Microsoft\Windows\CurrentVersion\Uninstall\ZOECOD64
+HKLM,Software\Microsoft\Windows\CurrentVersion\Uninstall\ZOECOD64,DisplayName,,"Zoe Lossless codec (64bit) (Remove Only)"
+HKLM,Software\Microsoft\Windows\CurrentVersion\Uninstall\ZOECOD64,UninstallString,,"%11%\rundll32.exe setupapi,InstallHinfSection Remove_AZCL 132 %17%\ZOECOD64.INF"
